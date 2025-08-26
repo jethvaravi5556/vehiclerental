@@ -3,6 +3,8 @@
 A full-stack Vehicle Rental System built with MERN stack (MongoDB, Express, React, Node.js).
 This project allows users to browse vehicles, make bookings (hourly/daily), save favorites, manage bookings, and includes an admin panel for managing users and vehicles.
 
+
+
 🌟 Features
 User Features
 
@@ -19,6 +21,8 @@ User Features
 🔹 View booking history and invoices
 
 🔹 Reset password via email OTP
+
+
 
 Admin Features
 
@@ -37,6 +41,8 @@ Chatbot
 Reviews
 
 ⭐ Users can post and view reviews for vehicles
+
+
 
 📁 Project Structure
 
@@ -61,6 +67,7 @@ VehicalRent/
 │  └─ .env            # Environment variables (ignored)
 
 └─ README.md
+
 
 
 ⚙️ Backend Setup
@@ -100,6 +107,8 @@ GOOGLE_CLIENT_SECRET=your_google_client_secret
 
 ->nodemon app.js
 
+
+
 ⚡ Frontend Setup
 
 1.Navigate to frontend folder:
@@ -122,13 +131,18 @@ VITE_UPLOAD_PRESET=vehicalRent
 
 npm run dev
 
+
+
 📧 Email Configuration
 
 The backend uses Gmail SMTP with nodemailer for sending invoices and OTPs.
 Set your credentials in .env:
 
 EMAIL_USER=your_email@gmail.com
+
 EMAIL_PASS=your_email_password
+
+
 
 💡 Notes
 
@@ -139,6 +153,8 @@ EMAIL_PASS=your_email_password
 🕒 Backend runs on port 8000 by default
 
 🌐 Frontend runs on port 5173
+
+
 
 📌 Tech Stack
 
@@ -155,6 +171,7 @@ Email: Nodemailer
 AI Chatbot: Ollama model (gemma:2b)
 
 Cloud Storage: Cloudinary
+
 
 👨‍💻 Author
 
