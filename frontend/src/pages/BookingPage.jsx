@@ -905,7 +905,7 @@ const BookingPage = () => {
                               <p className="text-2xl font-bold text-blue-600">
                                 {formatPrice(vehicle.pricePerDay)}/day
                               </p>
-                              <span className="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full font-medium">
+                              <span className="hidden lg:px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full font-medium">
                                 Most Popular
                               </span>
                             </div>
@@ -955,7 +955,7 @@ const BookingPage = () => {
                               <p className="text-2xl font-bold text-purple-600">
                                 {formatPrice(vehicle.pricePerHour)}/hour
                               </p>
-                              <span className="px-3 py-1 bg-purple-100 text-purple-800 text-sm rounded-full font-medium">
+                              <span className="hidden lg:px-3 py-1 bg-purple-100 text-purple-800 text-sm rounded-full font-medium">
                                 Flexible
                               </span>
                             </div>
