@@ -111,17 +111,26 @@ EMAIL_PASS=your_email_password
 📌 Tech Stack
 
 Frontend: React, Vite, TailwindCSS
+
 Backend: Node.js, Express
+
 Database: MongoDB, Mongoose
+
 Auth: JWT, bcrypt
+
 Email: Nodemailer
+
 AI Chatbot: Ollama model (gemma:2b)
+
 Cloud Storage: Cloudinary
 
 👨‍💻 Author
 Ravi Jethva
+
 📧 ravijethva2004@gmail.com
+
 GitHub: jethvaravi5556
 
 🚀 License
+
 MIT License
