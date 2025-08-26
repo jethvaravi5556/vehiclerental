@@ -118,24 +118,26 @@ const AdminBookings = () => {
 
   // Handle email invoice (placeholder - you'll need to implement backend endpoint)
   const handleEmailInvoice = async (booking) => {
-  const { file, fileName } = await generateInvoiceBlob(booking);
+    const { file, fileName } = await generateInvoiceBlob(booking);
 
-  const formData = new FormData();
-  formData.append("invoice", file); // ✅ Valid File object
-  formData.append("bookingId", booking._id);
-  formData.append("customerEmail", booking.user?.email);
-  formData.append("customerName", booking.user?.name);
+    const formData = new FormData();
+    formData.append("invoice", file); // ✅ Valid File object
+    formData.append("bookingId", booking._id);
+    formData.append("customerEmail", booking.user?.email);
+    formData.append("customerName", booking.user?.name);
 
-  try {
-    const response = await axios.post("/api/admin/send-invoice-email", formData); // ✅ don't set headers
-    console.log("✅ Email sent:", response.data);
-    toast.success("Invoice emailed successfully");
-  } catch (error) {
-    console.error("❌ Error emailing invoice:", error);
-    toast.error("Failed to send invoice");
-  }
-};
-
+    try {
+      const response = await axios.post(
+        "/api/admin/send-invoice-email",
+        formData
+      ); // ✅ don't set headers
+      console.log("✅ Email sent:", response.data);
+      toast.success("Invoice emailed successfully");
+    } catch (error) {
+      console.error("❌ Error emailing invoice:", error);
+      toast.error("Failed to send invoice");
+    }
+  };
 
   // Calculate booking statistics
   const bookingStats = useMemo(() => {
@@ -375,8 +377,8 @@ const AdminBookings = () => {
     <AdminLayout
       title="Booking Management"
       subtitle="Monitor and manage all vehicle bookings"
-      onRefresh={() => fetchBookings(true)}
-      refreshing={refreshing}
+      // onRefresh={() => fetchBookings(true)}
+      // refreshing={refreshing}
     >
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -386,14 +388,16 @@ const AdminBookings = () => {
         {/* Header with Stats */}
         <Card className="bg-gradient-to-r from-indigo-600 to-purple-600 border-0 shadow-xl text-white overflow-hidden">
           <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div>
-                <h2 className="text-2xl font-bold mb-2">Booking Analytics</h2>
-                <p className="text-indigo-100">
+                <h2 className="text-xl sm:text-2xl font-bold mb-2">
+                  Booking Analytics
+                </h2>
+                <p className="text-indigo-100 text-sm sm:text-base">
                   Monitor and manage all vehicle bookings
                 </p>
               </div>
-              <div className="flex space-x-3">
+              <div className="flex flex-wrap gap-2 sm:space-x-3">
                 <Button
                   variant="secondary"
                   size="sm"
@@ -416,7 +420,7 @@ const AdminBookings = () => {
             </div>
 
             {/* Quick Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {[
                 {
                   label: "Total Bookings",
@@ -471,7 +475,8 @@ const AdminBookings = () => {
 
         {/* Filters and Search */}
         <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-xl">
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
+            {/* Top Section */}
             <div className="flex flex-col lg:flex-row gap-4">
               {/* Search */}
               <div className="flex-1 relative">
@@ -481,16 +486,16 @@ const AdminBookings = () => {
                   placeholder="Search by customer, vehicle, or booking ID..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white/70"
+                  className="w-full pl-10 pr-4 py-2 sm:py-3 border border-gray-200 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white/70 text-sm sm:text-base"
                 />
               </div>
 
               {/* Quick Filters */}
-              <div className="flex gap-3 flex-wrap">
+              <div className="flex flex-wrap gap-2 sm:gap-3">
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white/70"
+                  className="px-3 sm:px-4 py-2 sm:py-3 border border-gray-200 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white/70 text-sm sm:text-base"
                 >
                   <option value="all">All Status</option>
                   <option value="confirmed">Confirmed</option>
@@ -501,7 +506,7 @@ const AdminBookings = () => {
                 <select
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value)}
-                  className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white/70"
+                  className="px-3 sm:px-4 py-2 sm:py-3 border border-gray-200 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white/70 text-sm sm:text-base"
                 >
                   <option value="all">All Types</option>
                   <option value="daily">Daily</option>
@@ -511,7 +516,7 @@ const AdminBookings = () => {
                 <select
                   value={dateFilter}
                   onChange={(e) => setDateFilter(e.target.value)}
-                  className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white/70"
+                  className="px-3 sm:px-4 py-2 sm:py-3 border border-gray-200 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white/70 text-sm sm:text-base"
                 >
                   <option value="all">All Time</option>
                   <option value="today">Today</option>
@@ -523,12 +528,12 @@ const AdminBookings = () => {
                 <Button
                   variant="outline"
                   onClick={() => setShowFilters(!showFilters)}
-                  className="border-gray-200"
+                  className="border-gray-200 flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg sm:rounded-xl text-sm sm:text-base"
                 >
-                  <Filter className="h-4 w-4 mr-2" />
-                  More
+                  <Filter className="h-4 w-4 mr-1 sm:mr-2" />
+                  <span className="hidden xs:inline">More</span>
                   <ChevronDown
-                    className={`h-4 w-4 ml-2 transition-transform ${
+                    className={`h-4 w-4 ml-1 sm:ml-2 transition-transform ${
                       showFilters ? "rotate-180" : ""
                     }`}
                   />
@@ -545,7 +550,7 @@ const AdminBookings = () => {
                   exit={{ height: 0, opacity: 0 }}
                   className="mt-4 pt-4 border-t border-gray-200"
                 >
-                  <div className="flex flex-wrap gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Sort By
@@ -553,7 +558,7 @@ const AdminBookings = () => {
                       <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value)}
-                        className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white"
                       >
                         <option value="createdAt">Booking Date</option>
                         <option value="startDate">Start Date</option>
@@ -570,7 +575,7 @@ const AdminBookings = () => {
                       <select
                         value={sortOrder}
                         onChange={(e) => setSortOrder(e.target.value)}
-                        className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white"
                       >
                         <option value="desc">Newest First</option>
                         <option value="asc">Oldest First</option>

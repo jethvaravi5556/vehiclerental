@@ -138,7 +138,7 @@ function InnerApp() {
                   <Route path="/saved-vehicles" element={<SavedVehiclesWrapper />} />
                   
                   {/* Chat Routes */}
-                  <Route path="/chat" element={<UserChatWrapper />} />
+                  <Route path="/user-chat" element={<UserChatWrapper />} />
                   
                   {/* Admin Routes */}
                   <Route path="/admin" element={<AdminDashboard />} />
@@ -151,7 +151,7 @@ function InnerApp() {
               <Footer />
               
               {/* Chat Components */}
-              {isAuthenticated && user?.role !== 'admin' && <ChatWidget />}
+              {isAuthenticated && user?.role !== 'admin' && <ChatbotWidget />}
               <ChatbotWidget />
               
               <Toaster

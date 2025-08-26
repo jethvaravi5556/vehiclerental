@@ -47,7 +47,7 @@ export const VehicleProvider = ({ children }) => {
       return response.data
     } catch (error) {
       console.error("Failed to fetch vehicles:", error)
-      toast.error("Failed to fetch vehicles")
+      // toast.error("Failed to fetch vehicles")
       return []
     } finally {
       setLoading(false)
@@ -80,7 +80,7 @@ export const VehicleProvider = ({ children }) => {
       return response.data
     } catch (error) {
       console.error("Failed to fetch vehicle:", error)
-      toast.error("Failed to fetch vehicle details")
+      // toast.error("Failed to fetch vehicle details")
       return null
     }
   }
@@ -207,9 +207,9 @@ export const VehicleProvider = ({ children }) => {
       return savedData
     } catch (error) {
       console.error("Failed to fetch saved vehicles:", error)
-      if (error.response?.status !== 401) {
-        toast.error("Failed to load saved vehicles")
-      }
+      // if (error.response?.status !== 401) {
+      //   toast.error("Failed to load saved vehicles")
+      // }
       return []
     }
   }

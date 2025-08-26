@@ -43,12 +43,12 @@ const Navbar = () => {
     { name: "Vehicles", page: "/vehicles" },
   ];
 
-  // Add My Bookings and Chat to nav links if user is authenticated
+  // Add My Bookings and context-aware Chat link to nav links if user is authenticated
   const authenticatedNavLinks = isAuthenticated 
     ? [
         ...navLinks, 
         { name: "My Bookings", page: "/my-bookings" },
-        { name: "Chat Support", page: "/chat" }
+        isAdmin ? { name: "Manage Chats", page: "/admin/chat" } : { name: "Chat Support", page: "/user-chat" }
       ]
     : navLinks;
 
@@ -93,7 +93,7 @@ const Navbar = () => {
                     : "text-gray-700 hover:text-blue-600"
                 }`}
               >
-                {link.name === "Chat Support" && (
+                {(link.name === "Chat Support" || link.name === "Manage Chats") && (
                   <>
                     <MessageCircle className="h-4 w-4" />
                     {unreadCount > 0 && (

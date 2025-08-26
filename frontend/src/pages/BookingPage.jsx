@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Calendar,
@@ -20,6 +20,13 @@ import {
   Phone,
   MessageCircle,
   HeadphonesIcon,
+  AlertTriangle,
+  RefreshCw,
+  XCircle,
+  Loader,
+  Info,
+  Ban,
+  Calendar as CalendarIcon,
 } from "lucide-react";
 import { useVehicle } from "../contexts/VehicleContext";
 import { useBooking } from "../contexts/BookingContext";
@@ -29,14 +36,18 @@ import Input from "../components/ui/Input";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
-
+import { useAuth } from "../contexts/AuthContext";
 const BookingPage = () => {
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const [searchParams] = useSearchParams();
   const vehicleId = searchParams.get("vehicleId");
 
   const [vehicle, setVehicle] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilityStatus, setAvailabilityStatus] = useState(null);
+  const [lastCheckedBooking, setLastCheckedBooking] = useState(null);
 
   // Enhanced URL params extraction
   const urlPickupDate = searchParams.get("pickupDate");
@@ -44,7 +55,7 @@ const BookingPage = () => {
   const urlPickupTime = searchParams.get("pickupTime");
   const urlReturnTime = searchParams.get("returnTime");
   const urlLocation = searchParams.get("location");
-  const urlBookingType = searchParams.get("bookingType"); // Check if hourly was specified
+  const urlBookingType = searchParams.get("bookingType");
 
   // Determine booking type from URL params
   const getInitialBookingType = () => {
@@ -64,12 +75,20 @@ const BookingPage = () => {
     bookingType: getInitialBookingType(),
   });
   const [totalAmount, setTotalAmount] = useState(0);
-  const [showPayment, setShowPayment] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
   const [prefillNotified, setPrefillNotified] = useState(false);
+  const [showConflictDetails, setShowConflictDetails] = useState(false);
 
   const { getVehicleById } = useVehicle();
-  const { createBooking, loading: bookingLoading } = useBooking();
+  const {
+    createBooking,
+    loading: bookingLoading,
+    checkVehicleAvailability,
+    getCachedAvailability,
+    clearAvailabilityCache,
+    conflictDetails,
+    getAlternativeSuggestions,
+  } = useBooking();
 
   useEffect(() => {
     if (vehicleId) {
@@ -82,7 +101,24 @@ const BookingPage = () => {
     validateBooking();
   }, [bookingData, vehicle]);
 
-  // Enhanced notification for pre-filled data including hourly
+  // Enhanced real-time availability checking with debouncing
+  useEffect(() => {
+    if (vehicle && vehicleId && bookingData.startDate) {
+      const bookingKey = getBookingKey(bookingData);
+
+      // Only check if booking data has actually changed
+      if (bookingKey !== lastCheckedBooking) {
+        const timeoutId = setTimeout(() => {
+          checkAvailabilityForCurrentBooking();
+          setLastCheckedBooking(bookingKey);
+        }, 1000); // 1 second debounce
+
+        return () => clearTimeout(timeoutId);
+      }
+    }
+  }, [bookingData, vehicle, vehicleId]);
+
+  // Enhanced notification for pre-filled data
   useEffect(() => {
     if (
       !prefillNotified &&
@@ -144,6 +180,56 @@ const BookingPage = () => {
     bookingData.bookingType,
   ]);
 
+  // Create unique booking key for comparison
+  const getBookingKey = (booking) => {
+    return `${booking.bookingType}-${booking.startDate}-${booking.endDate}-${booking.startHour}-${booking.endHour}`;
+  };
+
+  // Enhanced availability checking
+  const checkAvailabilityForCurrentBooking = useCallback(async () => {
+    if (!vehicle || !vehicleId) return;
+
+    // Check if we have enough data for availability check
+    if (bookingData.bookingType === "daily") {
+      if (!bookingData.startDate || !bookingData.endDate) return;
+    } else if (bookingData.bookingType === "hourly") {
+      if (
+        !bookingData.startDate ||
+        !bookingData.startHour ||
+        !bookingData.endHour
+      )
+        return;
+    }
+
+    // Check if dates/times are valid
+    if (bookingData.bookingType === "daily") {
+      if (new Date(bookingData.startDate) >= new Date(bookingData.endDate))
+        return;
+    } else {
+      if (bookingData.startHour >= bookingData.endHour) return;
+    }
+
+    try {
+      setAvailabilityLoading(true);
+      const result = await checkVehicleAvailability(vehicleId, bookingData);
+      setAvailabilityStatus(result);
+
+      // Auto-show conflict details if booking is not available
+      if (!result.available && result.conflictingBooking) {
+        setShowConflictDetails(true);
+      }
+    } catch (error) {
+      console.error("Availability check failed:", error);
+      setAvailabilityStatus({
+        available: false,
+        message: "Unable to check availability. Please try again.",
+        reason: "error",
+      });
+    } finally {
+      setAvailabilityLoading(false);
+    }
+  }, [vehicle, vehicleId, bookingData, checkVehicleAvailability]);
+
   const fetchVehicleDetails = async () => {
     try {
       const vehicleData = await getVehicleById(vehicleId);
@@ -196,7 +282,6 @@ const BookingPage = () => {
         if (new Date(bookingData.startDate) >= new Date(bookingData.endDate)) {
           errors.endDate = "End date must be after start date";
         }
-        // Check if start date is in the past
         if (new Date(bookingData.startDate) < new Date().setHours(0, 0, 0, 0)) {
           errors.startDate = "Start date cannot be in the past";
         }
@@ -209,11 +294,9 @@ const BookingPage = () => {
           errors.endHour = "End time must be after start time";
         }
       }
-      // For hourly bookings, we also need a date
       if (!bookingData.startDate) {
         errors.startDate = "Date is required for hourly booking";
       } else {
-        // Check if the selected date is in the past
         const selectedDate = new Date(bookingData.startDate);
         const today = new Date();
         selectedDate.setHours(0, 0, 0, 0);
@@ -223,7 +306,6 @@ const BookingPage = () => {
           errors.startDate = "Date cannot be in the past";
         }
 
-        // If it's today, check if the start time is in the past
         if (
           selectedDate.getTime() === today.getTime() &&
           bookingData.startHour
@@ -251,6 +333,7 @@ const BookingPage = () => {
 
   const handleInputChange = (field, value) => {
     setBookingData((prev) => ({ ...prev, [field]: value }));
+
     // Clear validation error for this field
     if (validationErrors[field]) {
       setValidationErrors((prev) => {
@@ -259,8 +342,19 @@ const BookingPage = () => {
         return newErrors;
       });
     }
+
+    // Clear availability status when booking details change
+    if (
+      ["startDate", "endDate", "startHour", "endHour", "bookingType"].includes(
+        field
+      )
+    ) {
+      setAvailabilityStatus(null);
+      setShowConflictDetails(false);
+    }
   };
 
+  // Enhanced submit with comprehensive availability check
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -276,6 +370,20 @@ const BookingPage = () => {
       return;
     }
 
+    // Final availability check before booking
+    if (!availabilityStatus || !availabilityStatus.available) {
+      toast.error("Please verify vehicle availability before booking", {
+        icon: "⚠️",
+        style: {
+          borderRadius: "10px",
+          background: "#F59E0B",
+          color: "#fff",
+        },
+      });
+      await checkAvailabilityForCurrentBooking();
+      return;
+    }
+
     const booking = {
       vehicleId: vehicle._id,
       ...bookingData,
@@ -284,15 +392,8 @@ const BookingPage = () => {
 
     const result = await createBooking(booking);
     if (result.success) {
-      toast.success("Booking confirmed successfully!", {
-        icon: "🎉",
-        duration: 5000,
-        style: {
-          borderRadius: "10px",
-          background: "#10B981",
-          color: "#fff",
-        },
-      });
+      // Clear availability cache
+      clearAvailabilityCache(vehicleId);
       navigate("/my-bookings");
     }
   };
@@ -331,11 +432,9 @@ const BookingPage = () => {
     }).format(price);
   };
 
-  // Enhanced booking type change handler
   const handleBookingTypeChange = (newType) => {
     if (newType === "hourly" && bookingData.bookingType === "daily") {
-      // When switching to hourly, preserve the start date but clear times
-      handleInputChange("endDate", ""); // Clear end date for hourly
+      handleInputChange("endDate", "");
       if (!bookingData.startHour) {
         handleInputChange("startHour", "");
       }
@@ -343,10 +442,8 @@ const BookingPage = () => {
         handleInputChange("endHour", "");
       }
     } else if (newType === "daily" && bookingData.bookingType === "hourly") {
-      // When switching to daily, clear times
       handleInputChange("startHour", "");
       handleInputChange("endHour", "");
-      // If we don't have an end date, set it to the day after start date
       if (bookingData.startDate && !bookingData.endDate) {
         const nextDay = new Date(bookingData.startDate);
         nextDay.setDate(nextDay.getDate() + 1);
@@ -356,20 +453,217 @@ const BookingPage = () => {
     handleInputChange("bookingType", newType);
   };
 
-  // Get prefill indicators
   const getPrefilledFields = () => {
     const fields = [];
-
     if (urlPickupDate) fields.push("date");
     if (urlReturnDate) fields.push("returnDate");
     if (urlPickupTime) fields.push("startTime");
     if (urlReturnTime) fields.push("endTime");
     if (urlLocation) fields.push("location");
-
     return fields;
   };
 
   const prefilledFields = getPrefilledFields();
+
+  // Enhanced Availability Status Component with Conflict Details
+  const AvailabilityStatus = () => {
+    if (availabilityLoading) {
+      return (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-center p-4 bg-blue-50 rounded-xl border border-blue-200"
+        >
+          <Loader className="h-5 w-5 text-blue-600 animate-spin mr-3" />
+          <span className="text-blue-800 font-medium">
+            Checking availability...
+          </span>
+        </motion.div>
+      );
+    }
+
+    if (!availabilityStatus) return null;
+
+    const { available, message, reason, conflictingBooking } =
+      availabilityStatus;
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={`rounded-xl border-2 ${
+          available
+            ? "bg-green-50 border-green-200"
+            : "bg-red-50 border-red-200"
+        }`}
+      >
+        <div className="p-4">
+          <div className="flex items-start">
+            <div
+              className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center mr-3 ${
+                available ? "bg-green-500" : "bg-red-500"
+              }`}
+            >
+              {available ? (
+                <CheckCircle className="h-4 w-4 text-white" />
+              ) : (
+                <XCircle className="h-4 w-4 text-white" />
+              )}
+            </div>
+            <div className="flex-1">
+              <p
+                className={`font-semibold ${
+                  available ? "text-green-800" : "text-red-800"
+                }`}
+              >
+                {available
+                  ? "✅ Vehicle Available"
+                  : "❌ Vehicle Not Available"}
+              </p>
+              <p
+                className={`text-sm mt-1 ${
+                  available ? "text-green-700" : "text-red-700"
+                }`}
+              >
+                {message}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Enhanced Conflict Details Section */}
+        {!available && conflictingBooking && (
+          <div className="border-t border-red-200 p-4 bg-red-100">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-semibold text-red-800 flex items-center">
+                <Ban className="h-4 w-4 mr-2" />
+                Booking Conflict Details
+              </h4>
+              <Button
+                onClick={() => setShowConflictDetails(!showConflictDetails)}
+                variant="ghost"
+                size="sm"
+                className="text-red-600 hover:text-red-700"
+              >
+                {showConflictDetails ? "Hide" : "Show"} Details
+              </Button>
+            </div>
+
+            <AnimatePresence>
+              {showConflictDetails && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="space-y-3"
+                >
+                  <div className="bg-red-50 p-3 rounded-lg border border-red-200">
+                    <div className="flex items-center mb-2">
+                      <AlertCircle className="h-4 w-4 text-red-600 mr-2" />
+                      <span className="font-medium text-red-800">
+                        Existing Booking:
+                      </span>
+                    </div>
+
+                    {bookingData.bookingType === "daily" ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center text-red-700 text-sm">
+                          <CalendarIcon className="h-4 w-4 mr-2" />
+                          <span>
+                            {new Date(
+                              conflictingBooking.startDate
+                            ).toLocaleDateString()}{" "}
+                            -{" "}
+                            {new Date(
+                              conflictingBooking.endDate
+                            ).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <div className="text-xs text-red-600">
+                          Booking ID:{" "}
+                          {conflictingBooking.id?.slice(-8) || "N/A"}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex items-center text-red-700 text-sm">
+                          <CalendarIcon className="h-4 w-4 mr-2" />
+                          <span>
+                            {new Date(
+                              conflictingBooking.startDate
+                            ).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <div className="flex items-center text-red-700 text-sm">
+                          <Clock className="h-4 w-4 mr-2" />
+                          <span>
+                            {conflictingBooking.startHour} -{" "}
+                            {conflictingBooking.endHour}
+                          </span>
+                        </div>
+                        <div className="text-xs text-red-600">
+                          Booking ID:{" "}
+                          {conflictingBooking.id?.slice(-8) || "N/A"}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                    <div className="flex items-center mb-2">
+                      <Info className="h-4 w-4 text-yellow-600 mr-2" />
+                      <span className="font-medium text-yellow-800">
+                        What you can do:
+                      </span>
+                    </div>
+                    <ul className="text-sm text-yellow-700 space-y-1">
+                      <li>• Choose different dates or times</li>
+                      <li>• Select another vehicle from our fleet</li>
+                      <li>• Contact support for personalized assistance</li>
+                    </ul>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => navigate("/vehicles")}
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 border-blue-300 text-blue-700 hover:bg-blue-50"
+                    >
+                      <Car className="h-4 w-4 mr-2" />
+                      View Other Vehicles
+                    </Button>
+                    <Button
+                      onClick={checkAvailabilityForCurrentBooking}
+                      variant="outline"
+                      size="sm"
+                      className="border-red-300 text-red-700 hover:bg-red-50"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+
+        {!available && !conflictingBooking && (
+          <div className="border-t border-red-200 p-4">
+            <Button
+              onClick={checkAvailabilityForCurrentBooking}
+              variant="outline"
+              size="sm"
+              className="border-red-300 text-red-700 hover:bg-red-100"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Check Again
+            </Button>
+          </div>
+        )}
+      </motion.div>
+    );
+  };
 
   if (!vehicleId) {
     return (
@@ -499,11 +793,6 @@ const BookingPage = () => {
                 >
                   Your booking form has been pre-filled with your{" "}
                   {bookingData.bookingType} search preferences.
-                  {prefilledFields.includes("date") && " Date"}
-                  {prefilledFields.includes("startTime") && ", times"}
-                  {prefilledFields.includes("location") &&
-                    ", and location"}{" "}
-                  have been set.
                   <br />
                   <span className="font-medium">
                     You can edit any of these details below.
@@ -853,6 +1142,22 @@ const BookingPage = () => {
                       )}
                     </div>
 
+                    {/* Real-time Availability Status */}
+                    {bookingData.startDate &&
+                      ((bookingData.bookingType === "daily" &&
+                        bookingData.endDate) ||
+                        (bookingData.bookingType === "hourly" &&
+                          bookingData.startHour &&
+                          bookingData.endHour)) && (
+                        <div>
+                          <label className="block text-xl font-bold text-gray-900 mb-4">
+                            <Shield className="inline h-6 w-6 mr-2 text-green-600" />
+                            Real-time Availability
+                          </label>
+                          <AvailabilityStatus />
+                        </div>
+                      )}
+
                     {/* Enhanced Location Details */}
                     <div>
                       <label className="block text-xl font-bold text-gray-900 mb-6">
@@ -934,16 +1239,26 @@ const BookingPage = () => {
                       <Button
                         type="submit"
                         size="lg"
-                        className="w-full h-16 text-xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 shadow-2xl hover:shadow-3xl transition-all duration-300 rounded-2xl"
+                        className={`w-full h-16 text-xl font-bold shadow-2xl hover:shadow-3xl transition-all duration-300 rounded-2xl ${
+                          availabilityStatus?.available === false
+                            ? "bg-gray-400 cursor-not-allowed"
+                            : "bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700"
+                        }`}
                         disabled={
                           bookingLoading ||
-                          Object.keys(validationErrors).length > 0
+                          Object.keys(validationErrors).length > 0 ||
+                          availabilityStatus?.available === false
                         }
                       >
                         {bookingLoading ? (
                           <>
                             <LoadingSpinner size="sm" className="mr-3" />
                             Processing Your Booking...
+                          </>
+                        ) : availabilityStatus?.available === false ? (
+                          <>
+                            <XCircle className="h-6 w-6 mr-3" />
+                            Vehicle Not Available
                           </>
                         ) : (
                           <>
@@ -953,6 +1268,28 @@ const BookingPage = () => {
                         )}
                       </Button>
                     </motion.div>
+
+                    {/* Availability Warning */}
+                    {availabilityStatus?.available === false && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-amber-50 border border-amber-200 rounded-xl p-4"
+                      >
+                        <div className="flex items-center">
+                          <AlertTriangle className="h-5 w-5 text-amber-600 mr-3" />
+                          <div>
+                            <p className="text-amber-800 font-semibold">
+                              Cannot proceed with booking
+                            </p>
+                            <p className="text-amber-700 text-sm">
+                              Please choose different dates/times or select
+                              another vehicle.
+                            </p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
                   </form>
                 </div>
               </Card>
@@ -996,11 +1333,14 @@ const BookingPage = () => {
                       <div className="flex items-center mt-2">
                         <Star className="h-4 w-4 text-yellow-400 fill-current" />
                         <span className="text-sm font-bold ml-1">
-                          {vehicle.rating || 4.8}
+                          {vehicle.reviewCount || "4.8"}
                         </span>
                         <span className="text-xs text-gray-500 ml-1">
-                          ({vehicle.reviewCount || "24"} reviews)
+                          ({vehicle.rating?.toFixed(1) || "0.0"} reviews)
                         </span>
+                        {/* <span className="text-gray-600 text-xs sm:text-sm">
+                          ({reviews.length} reviews)
+                        </span> */}
                       </div>
                     </div>
                   </div>
@@ -1033,6 +1373,52 @@ const BookingPage = () => {
                       </div>
                     </div>
                   )}
+
+                  {/* Enhanced Availability Indicator */}
+                  <div
+                    className={`p-4 rounded-2xl border-2 ${
+                      availabilityStatus?.available === true
+                        ? "bg-green-50 border-green-200"
+                        : availabilityStatus?.available === false
+                        ? "bg-red-50 border-red-200"
+                        : "bg-gray-50 border-gray-200"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-gray-900">Status:</span>
+                      <div className="flex items-center">
+                        {availabilityLoading ? (
+                          <>
+                            <Loader className="h-4 w-4 text-blue-600 animate-spin mr-2" />
+                            <span className="text-blue-600 font-medium">
+                              Checking...
+                            </span>
+                          </>
+                        ) : availabilityStatus?.available === true ? (
+                          <>
+                            <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
+                            <span className="text-green-600 font-bold">
+                              Available
+                            </span>
+                          </>
+                        ) : availabilityStatus?.available === false ? (
+                          <>
+                            <XCircle className="h-4 w-4 text-red-600 mr-2" />
+                            <span className="text-red-600 font-bold">
+                              Not Available
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <AlertCircle className="h-4 w-4 text-gray-600 mr-2" />
+                            <span className="text-gray-600 font-medium">
+                              Not checked
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
 
                   {/* Enhanced Booking Details */}
                   <div className="space-y-4">
@@ -1240,7 +1626,7 @@ const BookingPage = () => {
                       </li>
                       <li className="flex items-center">
                         <CheckCircle className="h-4 w-4 mr-2" />
-                        Verified Vehicle & Documents
+                        Real-time Availability Check
                       </li>
                     </ul>
                   </div>
@@ -1256,17 +1642,24 @@ const BookingPage = () => {
                         variant="outline"
                         size="sm"
                         className="flex-1 text-xs"
+                        onClick={
+                          () =>
+                            window.open("https://wa.me/919876543210", "_blank") // Replace with vehicle owner's WhatsApp number
+                        }
                       >
-                        <Phone className="h-3 w-3 mr-1" />
-                        Call
+                        <MessageCircle className="h-3 w-3 mr-1" />
+                        WhatsApp
                       </Button>
                       <Button
+                        onClick={() =>
+                          navigate(isAdmin ? "/admin/chat" : "/user-chat")
+                        }
                         variant="outline"
                         size="sm"
                         className="flex-1 text-xs"
                       >
                         <MessageCircle className="h-3 w-3 mr-1" />
-                        Chat
+                        {isAdmin ? "Manage Chats" : "Chat"}
                       </Button>
                     </div>
                   </div>

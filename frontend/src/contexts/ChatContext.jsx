@@ -15,12 +15,15 @@ export const useChat = () => {
 };
 
 export const ChatProvider = ({ children }) => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, initializing } = useAuth();
   const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [messages, setMessages] = useState([]);
   const [conversations, setConversations] = useState([]);
-  const [activeConversation, setActiveConversation] = useState(null);
+  const [activeConversation, setActiveConversation] = useState(() => {
+    const saved = sessionStorage.getItem('activeConversation');
+    return saved || null;
+  });
   const [unreadCount, setUnreadCount] = useState(0);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [isAdminOnline, setIsAdminOnline] = useState(false);
@@ -30,13 +33,16 @@ export const ChatProvider = ({ children }) => {
   const socketRef = useRef(null);
   const initializationRef = useRef(false);
   const lastMessageRef = useRef(null);
+  const conversationUpdateTimeoutRef = useRef(null);
+  const reconnectTimeoutRef = useRef(null);
 
   // Stable fetch functions
-  const fetchConversations = useCallback(async () => {
-    if (!user || loading) return;
+  const fetchConversations = useCallback(async (silent = false) => {
+    if (!user || (loading && !silent)) return;
     
     console.log('Fetching conversations for user:', user.role);
-    setLoading(true);
+    if (!silent) setLoading(true);
+    
     try {
       const endpoint = user.role === 'admin' 
         ? '/api/chats/admin/conversations' 
@@ -44,7 +50,15 @@ export const ChatProvider = ({ children }) => {
       
       const response = await axios.get(endpoint);
       console.log('Conversations fetched:', response.data);
-      setConversations(response.data || []);
+      
+      const newConversations = response.data || [];
+      
+      setConversations(newConversations);
+      
+      // Auto-update unread count
+      const totalUnread = newConversations.reduce((sum, conv) => sum + (conv.unreadCount || 0), 0);
+      setUnreadCount(totalUnread);
+      
     } catch (error) {
       console.error('Error fetching conversations:', error);
       if (error.response?.status !== 404) {
@@ -52,7 +66,7 @@ export const ChatProvider = ({ children }) => {
       }
       setConversations([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [user?.role, user?._id, loading]);
 
@@ -71,6 +85,7 @@ export const ChatProvider = ({ children }) => {
       );
       
       setMessages(sortedMessages);
+      
       return { messages: sortedMessages, hasMore: response.data.hasMore || false };
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -101,16 +116,18 @@ export const ChatProvider = ({ children }) => {
       const response = await axios.get('/api/chats/admins');
       console.log('Admins fetched:', response.data);
       setAdmins(response.data || []);
+      return response.data || [];
     } catch (error) {
       console.error('Error fetching admins:', error);
       setAdmins([]);
+      return [];
     }
   }, []);
 
-  // Add message helper function to prevent duplicates
+  // Add message with real-time updates
   const addMessage = useCallback((newMessage) => {
     setMessages(prevMessages => {
-      // Check for duplicates based on multiple criteria
+      // Check for duplicates
       const isDuplicate = prevMessages.some(msg => {
         return (
           msg._id === newMessage._id ||
@@ -131,23 +148,38 @@ export const ChatProvider = ({ children }) => {
         new Date(a.createdAt || a.timestamp) - new Date(b.createdAt || b.timestamp)
       );
       
-      console.log('Message added:', newMessage);
+      console.log('Message added to local state:', newMessage);
+      
+      // Update conversations list immediately for real-time feel
+      setTimeout(() => {
+        fetchConversations(true);
+      }, 100);
+      
       return updatedMessages;
     });
-  }, []);
+  }, [fetchConversations]);
 
   // Initialize socket connection
   useEffect(() => {
-    if (isAuthenticated && user && !initializationRef.current) {
+    if (!initializing && isAuthenticated && user && !initializationRef.current) {
       console.log('Initializing chat for user:', user.name, user.role);
       initializationRef.current = true;
       
-      initializeSocket();
-      fetchUnreadCount();
-      fetchConversations();
-      if (user.role !== 'admin') {
-        fetchAdmins();
-      }
+      // Delay initialization to ensure auth is fully loaded
+      const timer = setTimeout(() => {
+        initializeSocket();
+        fetchUnreadCount();
+        fetchConversations();
+        if (user.role !== 'admin') {
+          fetchAdmins();
+        }
+        // Restore messages for saved active conversation
+        if (activeConversation) {
+          fetchMessages(activeConversation);
+        }
+      }, 500);
+
+      return () => clearTimeout(timer);
     }
 
     return () => {
@@ -155,7 +187,7 @@ export const ChatProvider = ({ children }) => {
         cleanup();
       }
     };
-  }, [isAuthenticated, user?._id]);
+  }, [initializing, isAuthenticated, user?._id]);
 
   const cleanup = () => {
     if (socketRef.current) {
@@ -165,7 +197,19 @@ export const ChatProvider = ({ children }) => {
       setSocket(null);
       setIsConnected(false);
     }
+    
+    if (conversationUpdateTimeoutRef.current) {
+      clearTimeout(conversationUpdateTimeoutRef.current);
+      conversationUpdateTimeoutRef.current = null;
+    }
+
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    
     initializationRef.current = false;
+    lastMessageRef.current = null;
     setMessages([]);
     setConversations([]);
     setActiveConversation(null);
@@ -175,6 +219,15 @@ export const ChatProvider = ({ children }) => {
     setTypingUsers(new Map());
     setAdmins([]);
   };
+
+  // Persist active conversation across refreshes
+  useEffect(() => {
+    if (activeConversation) {
+      sessionStorage.setItem('activeConversation', activeConversation);
+    } else {
+      sessionStorage.removeItem('activeConversation');
+    }
+  }, [activeConversation]);
 
   const initializeSocket = () => {
     if (socketRef.current) {
@@ -188,8 +241,12 @@ export const ChatProvider = ({ children }) => {
       withCredentials: true,
       transports: ['websocket', 'polling'],
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 10,
       reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      maxReconnectionAttempts: 10,
+      timeout: 20000,
+      forceNew: true
     });
 
     socketRef.current = newSocket;
@@ -206,11 +263,30 @@ export const ChatProvider = ({ children }) => {
         isAdmin: user.role === 'admin',
         name: user.name
       });
+
+      // Request initial data after connection
+      setTimeout(() => {
+        newSocket.emit('get-online-users');
+      }, 1000);
+
+      // Clear any reconnection timeout
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
     });
 
     newSocket.on('disconnect', (reason) => {
       console.log('Disconnected from server:', reason);
       setIsConnected(false);
+
+      // Auto-reconnect after delay
+      reconnectTimeoutRef.current = setTimeout(() => {
+        if (!isConnected && user) {
+          console.log('Attempting to reconnect...');
+          initializeSocket();
+        }
+      }, 3000);
     });
 
     newSocket.on('connect_error', (error) => {
@@ -221,13 +297,27 @@ export const ChatProvider = ({ children }) => {
     newSocket.on('reconnect', (attemptNumber) => {
       console.log('Reconnected after', attemptNumber, 'attempts');
       setIsConnected(true);
-      // Refresh conversations on reconnect
-      setTimeout(() => fetchConversations(), 1000);
+      
+      // Re-join the room after reconnection
+      newSocket.emit('join', {
+        userId: user._id,
+        role: user.role,
+        isAdmin: user.role === 'admin',
+        name: user.name
+      });
+      
+      newSocket.emit('get-online-users');
+      
+      // Refresh data after reconnection
+      fetchConversations(true);
+      if (activeConversation) {
+        fetchMessages(activeConversation);
+      }
     });
 
-    // Enhanced message handling
+    // Real-time message handling
     newSocket.on('new-message', (messageData) => {
-      console.log('New message received:', messageData);
+      console.log('New message received via socket:', messageData);
       
       const normalizedMessage = {
         _id: messageData._id || messageData.id || Date.now().toString(),
@@ -238,8 +328,8 @@ export const ChatProvider = ({ children }) => {
         },
         receiver: messageData.receiver || { _id: messageData.receiverId },
         message: messageData.message,
-        createdAt: messageData.createdAt || messageData.timestamp,
-        timestamp: messageData.timestamp || messageData.createdAt,
+        createdAt: messageData.createdAt || messageData.timestamp || new Date().toISOString(),
+        timestamp: messageData.timestamp || messageData.createdAt || new Date().toISOString(),
         senderId: messageData.senderId || messageData.sender?._id,
         receiverId: messageData.receiverId || messageData.receiver?._id
       };
@@ -253,7 +343,10 @@ export const ChatProvider = ({ children }) => {
         addMessage(normalizedMessage);
       }
 
-      // Update unread count and show notification
+      // Always refresh conversations to update sidebar/unread badges in real-time
+      fetchConversations(true);
+
+      // Update unread count and show notification for messages not from current user
       if (normalizedMessage.senderId !== user._id && normalizedMessage.sender._id !== user._id) {
         if (!activeConversation || 
             (normalizedMessage.senderId !== activeConversation && 
@@ -269,18 +362,13 @@ export const ChatProvider = ({ children }) => {
           });
         }
       }
-
-      // Refresh conversations after a short delay
-      setTimeout(() => {
-        fetchConversations();
-      }, 500);
     });
 
     newSocket.on('private-message', (messageData) => {
-      console.log('Private message received:', messageData);
+      console.log('Private message received via socket:', messageData);
       
       const normalizedMessage = {
-        _id: messageData.id || Date.now().toString(),
+        _id: messageData.id || messageData._id || Date.now().toString(),
         sender: { 
           _id: messageData.senderId, 
           name: messageData.senderName,
@@ -288,17 +376,21 @@ export const ChatProvider = ({ children }) => {
         },
         receiver: { _id: messageData.receiverId },
         message: messageData.message,
-        createdAt: messageData.timestamp,
-        timestamp: messageData.timestamp,
+        createdAt: messageData.timestamp || new Date().toISOString(),
+        timestamp: messageData.timestamp || new Date().toISOString(),
         senderId: messageData.senderId,
         receiverId: messageData.receiverId
       };
 
+      // Add message to current conversation
       if (activeConversation && 
           (normalizedMessage.senderId === activeConversation || 
-           normalizedMessage.receiverId === user._id)) {
+           normalizedMessage.receiverId === activeConversation)) {
         addMessage(normalizedMessage);
       }
+
+      // Update conversations list even if message is for another conversation
+      fetchConversations(true);
     });
 
     // Typing indicators
@@ -324,61 +416,113 @@ export const ChatProvider = ({ children }) => {
     });
 
     // Online status events
-    newSocket.on('admin-status', ({ isOnline, onlineAdmins }) => {
-      console.log('Admin status update:', { isOnline, onlineAdmins });
-      setIsAdminOnline(isOnline || onlineAdmins > 0);
-    });
-
     newSocket.on('online-users-list', (usersList) => {
-      console.log('Online users list:', usersList);
-      setOnlineUsers(Array.isArray(usersList) ? usersList : []);
-    });
-
-    newSocket.on('user-online', ({ userId, userName, role }) => {
-      console.log('User came online:', { userId, userName, role });
-      setOnlineUsers(prev => {
-        const filtered = prev.filter(u => u.userId !== userId);
-        return [...filtered, { userId, userName, role, isOnline: true }];
-      });
+      console.log('Online users list received:', usersList);
       
-      if (role === 'admin') {
-        setIsAdminOnline(true);
-      }
+      const validUsers = Array.isArray(usersList) ? usersList : [];
+      const normalizedUsers = validUsers.map(user => ({
+        userId: user.userId || user.id || user._id,
+        userName: user.userName || user.name,
+        role: user.role || 'user',
+        isOnline: user.isOnline !== undefined ? user.isOnline : true,
+        socketId: user.socketId
+      }));
+      
+      setOnlineUsers(normalizedUsers);
+      
+      const onlineAdminsCount = normalizedUsers.filter(u => u.role === 'admin' && u.isOnline).length;
+      setIsAdminOnline(onlineAdminsCount > 0);
     });
 
-    newSocket.on('user-offline', ({ userId, role }) => {
-      console.log('User went offline:', { userId, role });
+    newSocket.on('user-online', (userData) => {
+      console.log('User came online:', userData);
+      const normalizedUser = {
+        userId: userData.userId || userData.id || userData._id,
+        userName: userData.userName || userData.name,
+        role: userData.role || 'user',
+        isOnline: true,
+        socketId: userData.socketId
+      };
+      
+      setOnlineUsers(prev => {
+        const filtered = prev.filter(u => u.userId !== normalizedUser.userId);
+        const updated = [...filtered, normalizedUser];
+        
+        const onlineAdminsCount = updated.filter(u => u.role === 'admin' && u.isOnline).length;
+        setIsAdminOnline(onlineAdminsCount > 0);
+        
+        return updated;
+      });
+    });
+
+    newSocket.on('user-offline', (userData) => {
+      console.log('User went offline:', userData);
+      const userId = userData.userId || userData.id || userData._id;
+      
       setOnlineUsers(prev => {
         const filtered = prev.filter(u => u.userId !== userId);
-        if (role === 'admin') {
-          const onlineAdmins = filtered.filter(u => u.role === 'admin').length;
-          setIsAdminOnline(onlineAdmins > 0);
-        }
+        
+        const remainingOnlineAdmins = filtered.filter(u => u.role === 'admin' && u.isOnline).length;
+        setIsAdminOnline(remainingOnlineAdmins > 0);
+        
         return filtered;
       });
     });
 
-    newSocket.on('connection-status', ({ isConnected: connected, onlineAdmins }) => {
-      console.log('Connection status:', { connected, onlineAdmins });
+    newSocket.on('admin-status', ({ isOnline, adminCount, onlineAdmins }) => {
+      console.log('Admin status update:', { isOnline, adminCount, onlineAdmins });
+      const adminOnlineStatus = isOnline || (adminCount && adminCount > 0) || (onlineAdmins && onlineAdmins > 0);
+      setIsAdminOnline(adminOnlineStatus);
+    });
+
+    newSocket.on('connection-status', ({ isConnected: connected, onlineAdmins, adminCount }) => {
+      console.log('Connection status update:', { connected, onlineAdmins, adminCount });
       setIsConnected(connected);
-      setIsAdminOnline(onlineAdmins > 0);
+      const adminOnlineStatus = (onlineAdmins && onlineAdmins > 0) || (adminCount && adminCount > 0);
+      setIsAdminOnline(adminOnlineStatus);
     });
 
     newSocket.on('error', (error) => {
       console.error('Socket error:', error);
-      toast.error('Chat connection error. Please refresh the page.');
+      toast.error('Chat connection error. Please try again.');
+    });
+
+    // Message sent confirmation
+    newSocket.on('message-sent', (data) => {
+      console.log('Message sent confirmation:', data);
     });
   };
 
-  // Enhanced send message function
+  // Enhanced send message function with optimistic updates
   const sendMessage = async (receiverId, message) => {
     if (!receiverId || !message.trim() || !isConnected) {
       console.warn('Cannot send message:', { receiverId, message: !!message.trim(), isConnected });
+      toast.error('Cannot send message. Please check your connection.');
       return { success: false, error: 'Invalid message or not connected' };
     }
 
     const trimmedMessage = message.trim();
     console.log('Sending message to:', receiverId, 'Message:', trimmedMessage);
+
+    // Create optimistic message for immediate UI update
+    const optimisticMessage = {
+      _id: 'temp_' + Date.now(),
+      sender: { 
+        _id: user._id, 
+        name: user.name,
+        role: user.role 
+      },
+      receiver: { _id: receiverId },
+      message: trimmedMessage,
+      createdAt: new Date().toISOString(),
+      timestamp: new Date().toISOString(),
+      senderId: user._id,
+      receiverId: receiverId,
+      sending: true
+    };
+
+    // Add optimistic message immediately
+    addMessage(optimisticMessage);
 
     try {
       const response = await axios.post('/api/chats/send', {
@@ -390,27 +534,34 @@ export const ChatProvider = ({ children }) => {
       const messageData = response.data;
       console.log('Message sent successfully:', messageData);
 
-      // Create normalized message object
-      const normalizedMessage = {
-        _id: messageData._id || Date.now().toString(),
-        sender: messageData.sender || { 
-          _id: user._id, 
-          name: user.name,
-          role: user.role 
-        },
-        receiver: messageData.receiver || { _id: receiverId },
-        message: trimmedMessage,
-        createdAt: messageData.createdAt || new Date().toISOString(),
-        timestamp: messageData.timestamp || new Date().toISOString(),
-        senderId: user._id,
-        receiverId: receiverId
-      };
+      // Remove optimistic message and add real message
+      setMessages(prevMessages => {
+        const filtered = prevMessages.filter(msg => msg._id !== optimisticMessage._id);
+        
+        const realMessage = {
+          _id: messageData._id || Date.now().toString(),
+          sender: messageData.sender || { 
+            _id: user._id, 
+            name: user.name,
+            role: user.role 
+          },
+          receiver: messageData.receiver || { _id: receiverId },
+          message: trimmedMessage,
+          createdAt: messageData.createdAt || new Date().toISOString(),
+          timestamp: messageData.timestamp || new Date().toISOString(),
+          senderId: user._id,
+          receiverId: receiverId
+        };
 
-      // Add to local messages immediately
-      addMessage(normalizedMessage);
+        const updatedMessages = [...filtered, realMessage].sort((a, b) => 
+          new Date(a.createdAt || a.timestamp) - new Date(b.createdAt || b.timestamp)
+        );
 
-      // Emit socket event for real-time update
-      if (socket) {
+        return updatedMessages;
+      });
+
+      // Emit socket event for real-time update to other users
+      if (socket && isConnected) {
         socket.emit('private-message', {
           senderId: user._id,
           receiverId,
@@ -418,18 +569,20 @@ export const ChatProvider = ({ children }) => {
           senderName: user.name,
           senderRole: user.role,
           isAdmin: user.role === 'admin',
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          _id: messageData._id
         });
       }
 
-      // Update conversations list
-      setTimeout(() => {
-        fetchConversations();
-      }, 300);
-
-      return { success: true, message: normalizedMessage };
+      return { success: true, message: messageData };
     } catch (error) {
       console.error('Error sending message:', error);
+      
+      // Remove optimistic message on error
+      setMessages(prevMessages => 
+        prevMessages.filter(msg => msg._id !== optimisticMessage._id)
+      );
+      
       const errorMsg = error.response?.data?.message || 'Failed to send message';
       toast.error(errorMsg);
       return { success: false, error };
@@ -455,29 +608,37 @@ export const ChatProvider = ({ children }) => {
     try {
       await axios.put(`/api/chats/mark-read/${senderId}`);
       console.log('Messages marked as read for sender:', senderId);
+      
       fetchUnreadCount();
+      fetchConversations(true);
     } catch (error) {
       console.error('Error marking messages as read:', error);
     }
-  }, [fetchUnreadCount]);
+  }, [fetchUnreadCount, fetchConversations]);
 
   // Start conversation with admin
-  const startConversationWithAdmin = async () => {
+  const startConversationWithAdmin = async (adminId = null) => {
     if (user.role === 'admin') return null;
 
     try {
-      const response = await axios.get('/api/chats/admins');
-      const availableAdmins = response.data || [];
-      console.log('Available admins:', availableAdmins);
+      if (adminId) {
+        const allAdmins = await fetchAdmins();
+        const selectedAdmin = allAdmins.find(admin => admin._id === adminId);
+        
+        if (selectedAdmin) {
+          console.log('Selected specific admin for conversation:', selectedAdmin);
+          return selectedAdmin;
+        } else {
+          toast.error('Selected admin is not available');
+          return null;
+        }
+      }
+
+      const availableAdmins = await fetchAdmins();
+      console.log('Available admins for conversation:', availableAdmins);
       
       if (availableAdmins.length > 0) {
-        const onlineAdmin = availableAdmins.find(admin => 
-          onlineUsers.some(u => u.userId === admin._id)
-        );
-        const selectedAdmin = onlineAdmin || availableAdmins[0];
-        
-        console.log('Selected admin for conversation:', selectedAdmin);
-        return selectedAdmin;
+        return availableAdmins[0];
       }
       
       toast.error('No admin available at the moment');
@@ -491,7 +652,7 @@ export const ChatProvider = ({ children }) => {
 
   // Get online users
   const getOnlineUsers = () => {
-    if (socket && user?.role === 'admin' && isConnected) {
+    if (socket && isConnected) {
       console.log('Requesting online users list');
       socket.emit('get-online-users');
     }
@@ -511,6 +672,7 @@ export const ChatProvider = ({ children }) => {
       await axios.delete(`/api/chats/${messageId}`);
       
       setMessages(prev => prev.filter(msg => msg._id !== messageId));
+      fetchConversations(true);
       
       toast.success('Message deleted');
       return { success: true };
@@ -525,7 +687,58 @@ export const ChatProvider = ({ children }) => {
   const clearActiveConversation = () => {
     setActiveConversation(null);
     setMessages([]);
+    lastMessageRef.current = null;
   };
+
+  // Get admin by ID
+  const getAdminById = useCallback((adminId) => {
+    return admins.find(admin => admin._id === adminId) || null;
+  }, [admins]);
+
+  // Check if admin is online
+  const isAdminOnlineById = useCallback((adminId) => {
+    if (!adminId) return false;
+    
+    const adminIdStr = adminId.toString();
+    
+    return onlineUsers.some(user => {
+      const userIdStr = (user.userId || user.id || user._id || '').toString();
+      const roleMatch = user.role === 'admin';
+      const onlineStatus = user.isOnline === true;
+      const idMatch = userIdStr === adminIdStr;
+      
+      return idMatch && roleMatch && onlineStatus;
+    });
+  }, [onlineUsers]);
+
+  // Force refresh function
+  const forceRefresh = useCallback(async () => {
+    console.log('Force refreshing all data...');
+    setLoading(true);
+    
+    try {
+      await Promise.all([
+        fetchConversations(),
+        fetchAdmins(),
+        fetchUnreadCount()
+      ]);
+      
+      if (activeConversation) {
+        await fetchMessages(activeConversation);
+      }
+      
+      if (socketRef.current && isConnected) {
+        socketRef.current.emit('get-online-users');
+      }
+      
+      toast.success('Data refreshed successfully');
+    } catch (error) {
+      console.error('Error during force refresh:', error);
+      toast.error('Failed to refresh data');
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchConversations, fetchAdmins, fetchUnreadCount, fetchMessages, activeConversation, isConnected]);
 
   const value = {
     // State
@@ -555,7 +768,10 @@ export const ChatProvider = ({ children }) => {
     deleteMessage,
     clearActiveConversation,
     fetchAdmins,
-    addMessage
+    addMessage,
+    getAdminById,
+    isAdminOnlineById,
+    forceRefresh
   };
 
   return (

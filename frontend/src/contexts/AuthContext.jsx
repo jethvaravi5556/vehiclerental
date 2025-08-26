@@ -17,23 +17,41 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [initializing, setInitializing] = useState(true);
 
+  // Check for stored user on initialization
+  useEffect(() => {
+    const storedUser = sessionStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+      } catch (error) {
+        console.error('Error parsing stored user:', error);
+        sessionStorage.removeItem('user');
+      }
+    }
+    setInitializing(false);
+  }, []);
+
   // Fetch current user from server
-  const fetchUser = useCallback(async (showError = false) => {
+  const fetchUser = useCallback(async (showError = false, isRetry = false) => {
     try {
-      setLoading(true);
+      if (!isRetry) setLoading(true);
+      
       const response = await axios.get("/api/auth/me", { 
         withCredentials: true,
-        timeout: 10000 // 10 second timeout
+        timeout: 10000
       });
       
       if (response.data?.user) {
         setUser(response.data.user);
+        sessionStorage.setItem('user', JSON.stringify(response.data.user));
         return response.data.user;
       }
     } catch (error) {
       // Only clear user on authentication errors, not network errors
       if (error.response?.status === 401 || error.response?.status === 403) {
         setUser(null);
+        sessionStorage.removeItem('user');
       } else if (showError) {
         console.error("Failed to fetch user:", error.message);
         if (!error.response) {
@@ -43,9 +61,19 @@ export const AuthProvider = ({ children }) => {
       return null;
     } finally {
       setLoading(false);
-      setInitializing(false);
     }
   }, []);
+
+  // Auto-retry authentication on mount
+  useEffect(() => {
+    if (!initializing && !user) {
+      const timer = setTimeout(() => {
+        fetchUser(false, true);
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [initializing, user, fetchUser]);
 
   // Login with email and password
   const login = async (credentials) => {
@@ -57,6 +85,7 @@ export const AuthProvider = ({ children }) => {
 
       if (response.data?.user) {
         setUser(response.data.user);
+        sessionStorage.setItem('user', JSON.stringify(response.data.user));
         toast.success(`Welcome back, ${response.data.user.name}!`, {
           icon: "👋",
           style: {
@@ -103,6 +132,7 @@ export const AuthProvider = ({ children }) => {
 
       if (response.data?.user) {
         setUser(response.data.user);
+        sessionStorage.setItem('user', JSON.stringify(response.data.user));
         toast.success(`Welcome to our platform, ${response.data.user.name}!`, {
           icon: "🎉",
           style: {
@@ -148,6 +178,7 @@ export const AuthProvider = ({ children }) => {
       });
       
       setUser(null);
+      sessionStorage.removeItem('user');
       toast.success("Logged out successfully", {
         icon: "👋",
         style: {
@@ -162,6 +193,7 @@ export const AuthProvider = ({ children }) => {
       console.error("Logout failed:", error);
       // Still clear user locally even if server logout fails
       setUser(null);
+      sessionStorage.removeItem('user');
       toast.error("Logout completed (with warnings)", {
         icon: "⚠️",
         style: {
@@ -187,6 +219,7 @@ export const AuthProvider = ({ children }) => {
 
       if (response.data?.user) {
         setUser(response.data.user);
+        sessionStorage.setItem('user', JSON.stringify(response.data.user));
         toast.success("Profile updated successfully!", {
           icon: "✅",
           style: {
@@ -390,11 +423,6 @@ export const AuthProvider = ({ children }) => {
     return "U";
   }, [user]);
 
-  // Initialize auth state on mount
-  useEffect(() => {
-    fetchUser();
-  }, [fetchUser]);
-
   // Setup axios interceptor for auth errors
   useEffect(() => {
     const interceptor = axios.interceptors.response.use(
@@ -403,6 +431,7 @@ export const AuthProvider = ({ children }) => {
         if (error.response?.status === 401 && user) {
           // Only logout if we currently have a user
           setUser(null);
+          sessionStorage.removeItem('user');
           toast.error("Session expired. Please login again.", {
             icon: "⏰",
             style: {

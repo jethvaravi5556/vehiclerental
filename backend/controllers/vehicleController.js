@@ -1,4 +1,3 @@
-// ---------- controllers/vehicleController.js ----------
 import Vehicle from "../models/Vehicle.js";
 import Booking from "../models/Booking.js";
 
@@ -11,15 +10,43 @@ export const getAllVehicles = async (req, res) => {
   res.json(vehicles);
 };
 
+// export const getVehicleById = async (req, res) => {
+//   const vehicle = await Vehicle.findById(req.params.id);
+//   res.json(vehicle);
+// };
+
+import Review from "../models/Review.js";
+
 export const getVehicleById = async (req, res) => {
-  const vehicle = await Vehicle.findById(req.params.id);
-  res.json(vehicle);
+  try {
+    const vehicle = await Vehicle.findById(req.params.id);
+    if (!vehicle) return res.status(404).json({ message: "Vehicle not found" });
+
+    // Count reviews for this vehicle
+    const reviewCount = await Review.countDocuments({ vehicle: vehicle._id });
+
+    // Average rating
+    const reviews = await Review.find({ vehicle: vehicle._id });
+    const avgRating =
+      reviews.length > 0
+        ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+        : 0;
+
+    res.json({
+      ...vehicle.toObject(),
+      reviewCount,
+      rating: avgRating || vehicle.rating, // fallback to vehicle.rating
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
 };
 
+
 export const createVehicle = async (req, res) => {
-const vehicle = new Vehicle(req.body)
-  await vehicle.save()
-  res.status(201).json(vehicle)
+  const vehicle = new Vehicle(req.body);
+  await vehicle.save();
+  res.status(201).json(vehicle);
 };
 
 export const updateVehicle = async (req, res) => {
@@ -32,7 +59,7 @@ export const deleteVehicle = async (req, res) => {
   res.json({ message: "Vehicle deleted" });
 };
 
-// ✅ New: Get available vehicles
+// ✅ Get available vehicles
 export const getAvailableVehicles = async (req, res) => {
   try {
     const { bookingType, startDate, endDate, startHour, endHour, location } = req.query;
@@ -76,9 +103,7 @@ export const getAvailableVehicles = async (req, res) => {
     const filter = {
       _id: { $nin: Array.from(bookedVehicleIds) },
     };
-    if (location) {
-      filter.location = location;
-    }
+    if (location) filter.location = location;
 
     const availableVehicles = await Vehicle.find(filter);
     res.json(availableVehicles);

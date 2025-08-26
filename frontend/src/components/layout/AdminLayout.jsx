@@ -1,7 +1,7 @@
 // components/layout/AdminLayout.jsx
-import { useState, useEffect } from "react"
-import { motion } from "framer-motion"
-import { useNavigate, useLocation } from "react-router-dom"
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   Users,
   Car,
@@ -10,45 +10,81 @@ import {
   Settings,
   Shield,
   Activity,
-  RefreshCw
-} from "lucide-react"
-import Card from "../ui/Card"
-import Button from "../ui/Button"
-import LoadingSpinner from "../ui/LoadingSpinner"
+  RefreshCw,
+} from "lucide-react";
+import Card from "../ui/Card";
+import Button from "../ui/Button";
+import LoadingSpinner from "../ui/LoadingSpinner";
 
-const AdminLayout = ({ children, onRefresh, refreshing = false, title, subtitle }) => {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const [currentSection, setCurrentSection] = useState("overview")
+const AdminLayout = ({
+  children,
+  onRefresh,
+  refreshing = false,
+  title,
+  subtitle,
+}) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [currentSection, setCurrentSection] = useState("overview");
 
   const sidebarItems = [
-    { name: "Overview", key: "overview", icon: BarChart3, color: "text-blue-600", path: "/admin" },
-    { name: "Users", key: "users", icon: Users, color: "text-green-600", path: "/admin/users" },
-    { name: "Vehicles", key: "vehicles", icon: Car, color: "text-purple-600", path: "/admin/vehicles" },
-    { name: "Bookings", key: "bookings", icon: Calendar, color: "text-orange-600", path: "/admin/bookings" },
-    { name: "Settings", key: "settings", icon: Settings, color: "text-gray-600", path: "/admin/settings" }
-  ]
+    {
+      name: "Overview",
+      key: "overview",
+      icon: BarChart3,
+      color: "text-blue-600",
+      path: "/admin",
+    },
+    {
+      name: "Users",
+      key: "users",
+      icon: Users,
+      color: "text-green-600",
+      path: "/admin/users",
+    },
+    {
+      name: "Vehicles",
+      key: "vehicles",
+      icon: Car,
+      color: "text-purple-600",
+      path: "/admin/vehicles",
+    },
+    {
+      name: "Bookings",
+      key: "bookings",
+      icon: Calendar,
+      color: "text-orange-600",
+      path: "/admin/bookings",
+    },
+    {
+      name: "Settings",
+      key: "settings",
+      icon: Settings,
+      color: "text-gray-600",
+      path: "/admin/settings",
+    },
+  ];
 
   // Determine current section based on URL
   useEffect(() => {
-    const path = location.pathname
+    const path = location.pathname;
     if (path === "/admin") {
-      setCurrentSection("overview")
+      setCurrentSection("overview");
     } else if (path.includes("/users")) {
-      setCurrentSection("users")
+      setCurrentSection("users");
     } else if (path.includes("/vehicles")) {
-      setCurrentSection("vehicles")
+      setCurrentSection("vehicles");
     } else if (path.includes("/bookings")) {
-      setCurrentSection("bookings")
+      setCurrentSection("bookings");
     } else if (path.includes("/settings")) {
-      setCurrentSection("settings")
+      setCurrentSection("settings");
     }
-  }, [location.pathname])
+  }, [location.pathname]);
 
   const handleNavigation = (item) => {
-    setCurrentSection(item.key)
-    navigate(item.path)
-  }
+    setCurrentSection(item.key);
+    navigate(item.path);
+  };
 
   return (
     <motion.div
@@ -59,7 +95,7 @@ const AdminLayout = ({ children, onRefresh, refreshing = false, title, subtitle 
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <motion.div 
+        <motion.div
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           className="flex items-center justify-between mb-8"
@@ -69,15 +105,17 @@ const AdminLayout = ({ children, onRefresh, refreshing = false, title, subtitle 
               <Shield className="h-8 w-8 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
                 {title || "Admin Dashboard"}
               </h1>
-              <p className="text-gray-600 mt-1">{subtitle || "Manage your vehicle rental platform with ease"}</p>
+              <p className="mt-1 text-sm sm:text-base lg:text-lg text-gray-600">
+                {subtitle || "Manage your vehicle rental platform with ease"}
+              </p>
             </div>
           </div>
           {onRefresh && (
-            <Button 
-              onClick={onRefresh} 
+            <Button
+              onClick={onRefresh}
               disabled={refreshing}
               className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
             >
@@ -93,7 +131,7 @@ const AdminLayout = ({ children, onRefresh, refreshing = false, title, subtitle 
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
           {/* Sidebar */}
-          <motion.div 
+          <motion.div
             initial={{ x: -20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ delay: 0.1 }}
@@ -116,7 +154,11 @@ const AdminLayout = ({ children, onRefresh, refreshing = false, title, subtitle 
                     animate={{ x: 0, opacity: 1 }}
                     transition={{ delay: index * 0.1 }}
                   >
-                    <item.icon className={`h-5 w-5 ${currentSection === item.key ? 'text-white' : item.color}`} />
+                    <item.icon
+                      className={`h-5 w-5 ${
+                        currentSection === item.key ? "text-white" : item.color
+                      }`}
+                    />
                     <span className="font-medium">{item.name}</span>
                     {currentSection === item.key && (
                       <motion.div
@@ -124,7 +166,11 @@ const AdminLayout = ({ children, onRefresh, refreshing = false, title, subtitle 
                         className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 -z-10"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                        transition={{
+                          type: "spring",
+                          bounce: 0.2,
+                          duration: 0.6,
+                        }}
                       />
                     )}
                   </motion.button>
@@ -134,13 +180,11 @@ const AdminLayout = ({ children, onRefresh, refreshing = false, title, subtitle 
           </motion.div>
 
           {/* Main Content */}
-          <div className="lg:col-span-4">
-            {children}
-          </div>
+          <div className="lg:col-span-4">{children}</div>
         </div>
       </div>
     </motion.div>
-  )
-}
+  );
+};
 
-export default AdminLayout
+export default AdminLayout;

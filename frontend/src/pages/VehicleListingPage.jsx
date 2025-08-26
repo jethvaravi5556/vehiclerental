@@ -23,6 +23,7 @@ import {
   TrendingUp,
   Eye,
   Shield,
+  Menu,
 } from "lucide-react";
 import { useVehicle } from "../contexts/VehicleContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -47,7 +48,7 @@ const VehicleListingPage = () => {
     isVehicleSaved,
   } = useVehicle();
 
-  // State management - Fixed the search term initialization
+  // State management
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState("grid");
   const [showFilters, setShowFilters] = useState(false);
@@ -74,7 +75,6 @@ const VehicleListingPage = () => {
     returnTime: searchParams.get("returnTime") || "",
   });
 
-  // Fixed: Check if it's search mode without affecting the search term
   const [isSearchMode, setIsSearchMode] = useState(
     searchParams.get("search") === "true"
   );
@@ -87,8 +87,10 @@ const VehicleListingPage = () => {
   // Handle initial search from URL params
   useEffect(() => {
     if (isSearchMode) {
-      // Auto-expand filters if search mode
+      // Auto-expand filters if search mode on larger screens
+      if (window.innerWidth >= 1024) {
       setShowFilters(true);
+      }
 
       // Show search info based on search type
       if (
@@ -254,11 +256,9 @@ const VehicleListingPage = () => {
       const searchLocation = filters.location.toLowerCase().trim();
       filtered = filtered.filter((vehicle) => {
         const vehicleLocation = vehicle.location?.toLowerCase() || "";
-        // Check for exact match or partial match
         return (
           vehicleLocation.includes(searchLocation) ||
           searchLocation.includes(vehicleLocation) ||
-          // Check for city names within locations
           vehicleLocation
             .split(",")
             .some(
@@ -287,18 +287,12 @@ const VehicleListingPage = () => {
     // Apply availability filter
     if (filters.available) {
       filtered = filtered.filter((vehicle) => {
-        // Check if vehicle is generally available
         if (vehicle.available === false) return false;
-
-        // If specific dates are provided, you could add more complex availability checking here
-        // For now, we'll just check the basic availability flag
         return vehicle.available !== false;
       });
     } else {
-      // If not filtering for available only, still show all vehicles but prioritize available ones
       filtered = filtered.filter((vehicle) => {
-        // You can add more complex logic here if needed
-        return true; // Show all vehicles for now
+        return true;
       });
     }
 
@@ -324,7 +318,6 @@ const VehicleListingPage = () => {
           if (aLocation.includes(searchLocation)) aScore += 10;
           if (bLocation.includes(searchLocation)) bScore += 10;
 
-          // Exact match gets higher score
           if (aLocation === searchLocation) aScore += 20;
           if (bLocation === searchLocation) bScore += 20;
         }
@@ -337,15 +330,14 @@ const VehicleListingPage = () => {
         aScore += a.rating || 0;
         bScore += b.rating || 0;
 
-        return bScore - aScore; // Higher score first
+        return bScore - aScore;
       });
     }
 
     // Apply sorting
     filtered.sort((a, b) => {
-      // Skip sorting if we're in search mode and already sorted by relevance
       if (isSearchMode && sortBy === "title" && sortOrder === "asc") {
-        return 0; // Keep search relevance order
+        return 0;
       }
 
       let aValue = a[sortBy] || "";
@@ -453,7 +445,6 @@ const VehicleListingPage = () => {
         params.set("returnDate", searchDates.returnDate);
       }
     } else {
-      // For hourly bookings
       if (searchDates.pickupTime) {
         params.set("pickupTime", searchDates.pickupTime);
       }
@@ -479,18 +470,18 @@ const VehicleListingPage = () => {
     });
   };
 
-  // Refresh vehicles
-  const handleRefresh = async () => {
-    await fetchVehicles();
-    toast.success("Vehicles refreshed successfully!", {
-      icon: "✨",
-      style: {
-        borderRadius: "10px",
-        background: "#8B5CF6",
-        color: "#fff",
-      },
-    });
-  };
+  // // Refresh vehicles
+  // const handleRefresh = async () => {
+  //   await fetchVehicles();
+  //   toast.success("Vehicles refreshed successfully!", {
+  //     icon: "✨",
+  //     style: {
+  //       borderRadius: "10px",
+  //       background: "#8B5CF6",
+  //       color: "#fff",
+  //     },
+  //   });
+  // };
 
   // Get search duration display
   const getSearchDuration = () => {
@@ -517,6 +508,7 @@ const VehicleListingPage = () => {
     }
     return null;
   };
+
     const getSearchSummary = () => {
     const parts = [];
     if (filters.location) parts.push(`in ${filters.location}`);
@@ -530,7 +522,7 @@ const VehicleListingPage = () => {
         if (duration) parts.push(`for ${duration}`);
       }
     }
-    return parts.length > 0 ? parts.join(' ') : '';
+    return parts.length > 0 ? parts.join(" ") : "";
   };
 
   return (
@@ -538,30 +530,71 @@ const VehicleListingPage = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 pt-20"
+      className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 pt-16 sm:pt-20"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
         {/* Enhanced Header with Search Info */}
         <motion.div
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="mb-8"
+          className="mb-6 sm:mb-8"
         >
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-row flex-wrap items-center justify-between gap-4 mb-4 sm:mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:gap-6">
             <div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-2">
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-700 bg-clip-text text-transparent mb-1 sm:mb-2">
                 {isSearchMode ? "Search Results" : "Vehicle Fleet"}
               </h1>
-              <p className="text-lg text-gray-600 mb-4">
+                <p className="text-sm sm:text-base text-gray-600 mb-2 sm:mb-0">
                 {isSearchMode
                   ? `Vehicles matching your ${searchDates.searchType} search criteria`
                   : "Find your perfect ride from our extensive collection"}
               </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4 lg:gap-6 mt-2 sm:mt-0">
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 bg-white px-3 sm:px-4 py-2 rounded-full border shadow-sm">
+                  <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-green-500" />
+                  <span className="font-medium">
+                    {filteredAndSortedVehicles.length} vehicles{" "}
+                    {isSearchMode ? "found" : "available"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 bg-white px-3 sm:px-4 py-2 rounded-full border shadow-sm">
+                  <Award className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-500" />
+                  <span className="font-medium">Quality guaranteed</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 bg-white px-3 sm:px-4 py-2 rounded-full border shadow-sm">
+                  <Shield className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500" />
+                  <span className="font-medium">Secure & verified</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="hidden sm:block"
+              >
+                {/* 
+      <Button
+        onClick={handleRefresh}
+        className="bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all duration-300"
+      >
+        <RefreshCw className="h-4 w-4 mr-2" />
+        <span className="hidden md:inline">Refresh Fleet</span>
+        <span className="md:hidden">Refresh</span>
+      </Button> 
+      */}
+              </motion.div>
+            </div>
+          </div>
 
               {/* Enhanced Search Info Bar */}
               {isSearchMode && (searchDates.pickupDate || filters.location) && (
                 <div
-                  className={`border rounded-lg p-4 mb-4 ${
+              className={`border rounded-lg p-3 sm:p-4 mb-4 ${
                     searchDates.searchType === "hourly"
                       ? "bg-purple-50 border-purple-200"
                       : "bg-blue-50 border-blue-200"
@@ -575,20 +608,20 @@ const VehicleListingPage = () => {
                     }`}
                   >
                     {searchDates.searchType === "hourly" ? (
-                      <Clock className="h-5 w-5" />
+                  <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
                     ) : (
-                      <Calendar className="h-5 w-5" />
+                  <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
                     )}
-                    <span className="font-semibold">
+                <span className="font-semibold text-sm sm:text-base">
                       {searchDates.searchType === "hourly"
                         ? "Hourly Search Details:"
                         : "Daily Search Details:"}
                     </span>
                   </div>
-                  <div className="flex flex-wrap gap-4 text-sm">
+              <div className="flex flex-wrap gap-2 sm:gap-4 text-xs sm:text-sm">
                     {filters.location && (
                       <div className="flex items-center gap-1">
-                        <MapPin className="h-4 w-4 text-blue-600" />
+                    <MapPin className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
                         <span className="text-blue-700 font-medium">
                           {filters.location}
                         </span>
@@ -596,31 +629,27 @@ const VehicleListingPage = () => {
                     )}
                     {searchDates.pickupDate && (
                       <div className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4 text-green-600" />
+                    <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
                         <span className="text-green-700">
                           Date:{" "}
-                          {new Date(
-                            searchDates.pickupDate
-                          ).toLocaleDateString()}
+                      {new Date(searchDates.pickupDate).toLocaleDateString()}
                         </span>
                       </div>
                     )}
                     {searchDates.searchType === "daily" &&
                       searchDates.returnDate && (
                         <div className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4 text-red-600" />
+                      <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-red-600" />
                           <span className="text-red-700">
                             To:{" "}
-                            {new Date(
-                              searchDates.returnDate
-                            ).toLocaleDateString()}
+                        {new Date(searchDates.returnDate).toLocaleDateString()}
                           </span>
                         </div>
                       )}
                     {searchDates.searchType === "hourly" &&
                       searchDates.pickupTime && (
                         <div className="flex items-center gap-1">
-                          <Clock className="h-4 w-4 text-purple-600" />
+                      <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-purple-600" />
                           <span className="text-purple-700">
                             From: {searchDates.pickupTime}
                           </span>
@@ -629,7 +658,7 @@ const VehicleListingPage = () => {
                     {searchDates.searchType === "hourly" &&
                       searchDates.returnTime && (
                         <div className="flex items-center gap-1">
-                          <Clock className="h-4 w-4 text-purple-600" />
+                      <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-purple-600" />
                           <span className="text-purple-700">
                             To: {searchDates.returnTime}
                           </span>
@@ -650,75 +679,62 @@ const VehicleListingPage = () => {
                 </div>
               )}
 
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2 text-sm text-gray-500 bg-white px-4 py-2 rounded-full border shadow-sm">
-                  <TrendingUp className="h-4 w-4 text-green-500" />
-                  <span className="font-medium">
-                    {filteredAndSortedVehicles.length} vehicles{" "}
-                    {isSearchMode ? "found" : "available"}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-gray-500 bg-white px-4 py-2 rounded-full border shadow-sm">
-                  <Award className="h-4 w-4 text-yellow-500" />
-                  <span className="font-medium">Quality guaranteed</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-gray-500 bg-white px-4 py-2 rounded-full border shadow-sm">
-                  <Shield className="h-4 w-4 text-blue-500" />
-                  <span className="font-medium">Secure & verified</span>
-                </div>
-              </div>
-            </div>
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button
-                onClick={handleRefresh}
-                className="bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all duration-300"
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh Fleet
-              </Button>
-            </motion.div>
-          </div>
-
           {/* Search and Controls */}
           <Card className="bg-white shadow-lg border">
-            <div className="p-6">
-              <div className="flex flex-col lg:flex-row gap-6">
+            <div className="p-4 sm:p-6">
+              <div className="flex flex-col gap-4">
                 {/* Search Bar */}
-                <div className="flex-1 relative">
-                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <div className="relative">
+                  <Search className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
                   <input
                     type="text"
                     placeholder="Search for your perfect vehicle..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-6 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base placeholder-gray-400"
+                    className="w-full pl-10 sm:pl-12 pr-4 sm:pr-6 py-2.5 sm:py-3 border-2 border-gray-200 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-sm sm:text-base placeholder-gray-400"
                   />
                 </div>
 
                 {/* Controls */}
-                <div className="flex items-center gap-4">
+                <div className="flex items-center justify-between gap-2 sm:gap-3 flex-wrap">
+                  <div className="flex items-center gap-2 sm:gap-3">
                   {/* View Mode Toggle */}
                   <div className="flex bg-gray-100 rounded-lg p-1">
                     <button
                       onClick={() => setViewMode("grid")}
-                      className={`p-2 rounded-md transition-all ${
+                        className={`p-1.5 sm:p-2 rounded-md transition-all ${
                         viewMode === "grid"
                           ? "bg-white shadow-sm text-blue-600"
                           : "text-gray-600 hover:text-gray-900"
                       }`}
                     >
-                      <Grid className="h-4 w-4" />
+                        <Grid className="h-3 w-3 sm:h-4 sm:w-4" />
                     </button>
                     <button
                       onClick={() => setViewMode("list")}
-                      className={`p-2 rounded-md transition-all ${
+                        className={`p-1.5 sm:p-2 rounded-md transition-all ${
                         viewMode === "list"
                           ? "bg-white shadow-sm text-blue-600"
                           : "text-gray-600 hover:text-gray-900"
                       }`}
                     >
-                      <List className="h-4 w-4" />
+                        <List className="h-3 w-3 sm:h-4 sm:w-4" />
                     </button>
+                    </div>
+
+                    {/* Filter Toggle */}
+                    <Button
+                      onClick={() => setShowFilters(!showFilters)}
+                      className="bg-gray-700 hover:bg-gray-800 px-3 sm:px-4 py-2 text-sm"
+                    >
+                      <SlidersHorizontal className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                      <span className="hidden sm:inline">Filters</span>
+                      <ChevronDown
+                        className={`h-3 w-3 sm:h-4 sm:w-4 ml-1 sm:ml-2 transition-transform ${
+                          showFilters ? "rotate-180" : ""
+                        }`}
+                      />
+                    </Button>
                   </div>
 
                   {/* Sort Dropdown */}
@@ -729,7 +745,7 @@ const VehicleListingPage = () => {
                       setSortBy(field);
                       setSortOrder(order);
                     }}
-                    className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700 font-medium min-w-[180px]"
+                    className="px-2 sm:px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700 font-medium text-sm min-w-[120px] sm:min-w-[160px]"
                   >
                     <option value="title-asc">Name A-Z</option>
                     <option value="title-desc">Name Z-A</option>
@@ -738,27 +754,13 @@ const VehicleListingPage = () => {
                     <option value="rating-desc">Highest Rated</option>
                     <option value="brand-asc">Brand A-Z</option>
                   </select>
-
-                  {/* Filter Toggle */}
-                  <Button
-                    onClick={() => setShowFilters(!showFilters)}
-                    className="bg-gray-700 hover:bg-gray-800 px-4 py-2"
-                  >
-                    <SlidersHorizontal className="h-4 w-4 mr-2" />
-                    Filters
-                    <ChevronDown
-                      className={`h-4 w-4 ml-2 transition-transform ${
-                        showFilters ? "rotate-180" : ""
-                      }`}
-                    />
-                  </Button>
                 </div>
               </div>
 
               {/* Results Summary */}
-              <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
-                <div className="flex items-center gap-4">
-                  <p className="text-gray-600 font-medium">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-200">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <p className="text-sm sm:text-base text-gray-600 font-medium">
                     Showing{" "}
                     <span className="text-blue-600 font-bold">
                       {filteredAndSortedVehicles.length}
@@ -770,8 +772,8 @@ const VehicleListingPage = () => {
                     vehicles
                   </p>
                   {filteredAndSortedVehicles.length > 0 && (
-                    <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-200">
-                      <Zap className="h-4 w-4" />
+                    <div className="flex items-center gap-2 text-xs sm:text-sm text-green-600 bg-green-50 px-2 sm:px-3 py-1 rounded-full border border-green-200">
+                      <Zap className="h-3 w-3 sm:h-4 sm:w-4" />
                       <span className="font-medium">Ready to book</span>
                     </div>
                   )}
@@ -783,10 +785,10 @@ const VehicleListingPage = () => {
                   <Button
                     onClick={clearFilters}
                     variant="ghost"
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-200"
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-200 text-sm px-3 py-2"
                   >
-                    <X className="h-4 w-4 mr-2" />
-                    Clear All Filters
+                    <X className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    Clear All
                   </Button>
                 )}
               </div>
@@ -794,16 +796,18 @@ const VehicleListingPage = () => {
           </Card>
         </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8">
           {/* Enhanced Filters Sidebar */}
           <AnimatePresence>
             {showFilters && (
+              <>
+                {/* Desktop Filter Sidebar */}
               <motion.div
                 initial={{ x: -300, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 exit={{ x: -300, opacity: 0 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className="lg:col-span-1"
+                  className="hidden lg:block lg:col-span-1"
               >
                 <div className="sticky top-24">
                   <Card className="bg-white shadow-lg border">
@@ -813,317 +817,67 @@ const VehicleListingPage = () => {
                           <Filter className="inline h-5 w-5 mr-2" />
                           Filters
                         </h3>
-                        <Button
+                        </div>
+
+                        <FilterContent
+                          searchDates={searchDates}
+                          isSearchMode={isSearchMode}
+                          handleSearchDateChange={handleSearchDateChange}
+                          filters={filters}
+                          handleFilterChange={handleFilterChange}
+                          filterOptions={filterOptions}
+                          priceRange={priceRange}
+                          formatPrice={formatPrice}
+                        />
+                      </div>
+                    </Card>
+                  </div>
+                </motion.div>
+
+                {/* Mobile Filter Modal */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="lg:hidden fixed inset-0 bg-black/50 z-40"
                           onClick={() => setShowFilters(false)}
-                          variant="ghost"
-                          size="sm"
-                          className="lg:hidden"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
+                />
 
-                      <div className="space-y-6">
-                        {/* Search Type & Dates Section */}
-                        {(searchDates.pickupDate ||
-                          searchDates.pickupTime ||
-                          isSearchMode) && (
-                          <div
-                            className={`p-4 rounded-lg border ${
-                              searchDates.searchType === "hourly"
-                                ? "bg-purple-50 border-purple-200"
-                                : "bg-blue-50 border-blue-200"
-                            }`}
-                          >
-                            <label
-                              className={`block text-sm font-medium mb-3 ${
-                                searchDates.searchType === "hourly"
-                                  ? "text-purple-800"
-                                  : "text-blue-800"
-                              }`}
-                            >
-                              {searchDates.searchType === "hourly" ? (
-                                <Clock className="inline h-4 w-4 mr-1" />
-                              ) : (
-                                <Calendar className="inline h-4 w-4 mr-1" />
-                              )}
-                              Search{" "}
-                              {searchDates.searchType === "hourly"
-                                ? "Times"
-                                : "Dates"}
-                            </label>
-
-                            {/* Search Type Toggle */}
-                            <div className="mb-4">
-                              <div className="flex bg-white rounded-lg p-1 border">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleSearchDateChange(
-                                      "searchType",
-                                      "daily"
-                                    )
-                                  }
-                                  className={`flex-1 py-2 px-3 rounded-md text-xs font-medium transition-all ${
-                                    searchDates.searchType === "daily"
-                                      ? "bg-blue-500 text-white"
-                                      : "text-gray-600 hover:text-blue-600"
-                                  }`}
-                                >
-                                  <Calendar className="inline h-3 w-3 mr-1" />
-                                  Daily
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleSearchDateChange(
-                                      "searchType",
-                                      "hourly"
-                                    )
-                                  }
-                                  className={`flex-1 py-2 px-3 rounded-md text-xs font-medium transition-all ${
-                                    searchDates.searchType === "hourly"
-                                      ? "bg-purple-500 text-white"
-                                      : "text-gray-600 hover:text-purple-600"
-                                  }`}
-                                >
-                                  <Clock className="inline h-3 w-3 mr-1" />
-                                  Hourly
-                                </button>
-                              </div>
-                            </div>
-
-                            <div className="space-y-3">
-                              <div>
-                                <label className="block text-xs font-medium text-gray-600 mb-1">
-                                  {searchDates.searchType === "hourly"
-                                    ? "Date"
-                                    : "Pickup Date"}
-                                </label>
-                                <input
-                                  type="date"
-                                  value={searchDates.pickupDate}
-                                  onChange={(e) =>
-                                    handleSearchDateChange(
-                                      "pickupDate",
-                                      e.target.value
-                                    )
-                                  }
-                                  min={new Date().toISOString().split("T")[0]}
-                                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent bg-white text-sm ${
-                                    searchDates.searchType === "hourly"
-                                      ? "border-purple-300 focus:ring-purple-500"
-                                      : "border-blue-300 focus:ring-blue-500"
-                                  }`}
-                                />
-                              </div>
-
-                              {searchDates.searchType === "daily" ? (
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                                    Return Date
-                                  </label>
-                                  <input
-                                    type="date"
-                                    value={searchDates.returnDate}
-                                    onChange={(e) =>
-                                      handleSearchDateChange(
-                                        "returnDate",
-                                        e.target.value
-                                      )
-                                    }
-                                    min={
-                                      searchDates.pickupDate ||
-                                      new Date().toISOString().split("T")[0]
-                                    }
-                                    className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-sm"
-                                  />
-                                </div>
-                              ) : (
-                                <>
-                                  <div>
-                                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                                      Start Time
-                                    </label>
-                                    <input
-                                      type="time"
-                                      value={searchDates.pickupTime}
-                                      onChange={(e) =>
-                                        handleSearchDateChange(
-                                          "pickupTime",
-                                          e.target.value
-                                        )
-                                      }
-                                      className="w-full px-3 py-2 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-sm"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                                      End Time
-                                    </label>
-                                    <input
-                                      type="time"
-                                      value={searchDates.returnTime}
-                                      onChange={(e) =>
-                                        handleSearchDateChange(
-                                          "returnTime",
-                                          e.target.value
-                                        )
-                                      }
-                                      className="w-full px-3 py-2 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-sm"
-                                    />
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Vehicle Type Filter */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Vehicle Type
-                          </label>
-                          <select
-                            value={filters.type}
-                            onChange={(e) =>
-                              handleFilterChange("type", e.target.value)
-                            }
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                          >
-                            <option value="">All Types</option>
-                            {filterOptions.types.map((type) => (
-                              <option key={type} value={type}>
-                                {type}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {/* Brand Filter */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Brand
-                          </label>
-                          <select
-                            value={filters.brand}
-                            onChange={(e) =>
-                              handleFilterChange("brand", e.target.value)
-                            }
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                          >
-                            <option value="">All Brands</option>
-                            {filterOptions.brands.map((brand) => (
-                              <option key={brand} value={brand}>
-                                {brand}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {/* Location Filter */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Location
-                          </label>
-                          <select
-                            value={filters.location}
-                            onChange={(e) =>
-                              handleFilterChange("location", e.target.value)
-                            }
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                          >
-                            <option value="">All Locations</option>
-                            {filterOptions.locations.map((location) => (
-                              <option key={location} value={location}>
-                                {location}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {/* Price Range Filter */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Price Range (Per{" "}
-                            {searchDates.searchType === "hourly"
-                              ? "Hour"
-                              : "Day"}
-                            )
-                          </label>
-                          <div className="grid grid-cols-2 gap-3">
-                            <input
-                              type="number"
-                              placeholder="Min"
-                              value={filters.priceMin}
-                              onChange={(e) =>
-                                handleFilterChange("priceMin", e.target.value)
-                              }
-                              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                            />
-                            <input
-                              type="number"
-                              placeholder="Max"
-                              value={filters.priceMax}
-                              onChange={(e) =>
-                                handleFilterChange("priceMax", e.target.value)
-                              }
-                              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                            />
-                          </div>
-                          {priceRange.min > 0 && (
-                            <p className="text-xs text-gray-500 mt-2 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
-                              Available range: {formatPrice(priceRange.min)} -{" "}
-                              {formatPrice(priceRange.max)}
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Rating Filter */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Minimum Rating
-                          </label>
-                          <select
-                            value={filters.rating}
-                            onChange={(e) =>
-                              handleFilterChange("rating", e.target.value)
-                            }
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                          >
-                            <option value="">Any Rating</option>
-                            <option value="4.5">⭐ 4.5+ Excellent</option>
-                            <option value="4.0">⭐ 4.0+ Very Good</option>
-                            <option value="3.5">⭐ 3.5+ Good</option>
-                            <option value="3.0">⭐ 3.0+ Average</option>
-                          </select>
-                        </div>
-
-                        {/* Availability Filter */}
-                        <div>
-                          <label className="flex items-center p-3 bg-green-50 rounded-lg border border-green-200 cursor-pointer hover:bg-green-100 transition-colors">
-                            <input
-                              type="checkbox"
-                              checked={filters.available}
-                              onChange={(e) =>
-                                handleFilterChange(
-                                  "available",
-                                  e.target.checked
-                                )
-                              }
-                              className="rounded border-gray-300 text-green-600 focus:ring-green-500 w-4 h-4"
-                            />
-                            <span className="ml-3 text-sm font-medium text-gray-700">
-                              <Zap className="inline h-4 w-4 mr-2 text-green-500" />
-                              Available only
-                            </span>
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                </div>
-              </motion.div>
+                <motion.div
+                  initial={{ x: -320, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  exit={{ x: -320, opacity: 0 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                  className="lg:hidden fixed inset-y-0 left-0 z-50 w-80 max-w-[85vw] bg-white shadow-2xl border-r overflow-y-auto"
+                >
+                  <div className="p-4 border-b flex items-center justify-between bg-gray-50">
+                    <h3 className="text-lg font-bold text-gray-900">
+                      <Filter className="inline h-5 w-5 mr-2" />
+                      Filters
+                    </h3>
+                    <button
+                      onClick={() => setShowFilters(false)}
+                      className="p-2 rounded-lg hover:bg-gray-200 transition-colors"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <div className="p-4">
+                    <FilterContent
+                      searchDates={searchDates}
+                      isSearchMode={isSearchMode}
+                      handleSearchDateChange={handleSearchDateChange}
+                      filters={filters}
+                      handleFilterChange={handleFilterChange}
+                      filterOptions={filterOptions}
+                      priceRange={priceRange}
+                      formatPrice={formatPrice}
+                      isMobile={true}
+                      onClose={() => setShowFilters(false)}
+                    />
+                  </div>
+                </motion.div>
+              </>
             )}
           </AnimatePresence>
 
@@ -1144,8 +898,8 @@ const VehicleListingPage = () => {
                 animate={{ opacity: 1 }}
                 className={
                   viewMode === "grid"
-                    ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
-                    : "space-y-6"
+                    ? "grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6"
+                    : "space-y-4 sm:space-y-6"
                 }
               >
                 <AnimatePresence>
@@ -1179,15 +933,15 @@ const VehicleListingPage = () => {
                 className="text-center py-20"
               >
                 <div className="mb-8">
-                  <div className="w-32 h-32 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <Search className="h-16 w-16 text-gray-400" />
+                  <div className="w-24 h-24 sm:w-32 sm:h-32 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Search className="h-12 w-12 sm:h-16 sm:w-16 text-gray-400" />
                   </div>
-                  <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                  <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3">
                     {isSearchMode
                       ? "No vehicles found for your search"
                       : "No vehicles found"}
                   </h3>
-                  <p className="text-gray-600 mb-8 max-w-md mx-auto">
+                  <p className="text-gray-600 mb-8 max-w-md mx-auto text-sm sm:text-base">
                     {isSearchMode
                       ? "Try adjusting your search criteria or dates to find more options."
                       : "We couldn't find any vehicles matching your criteria. Try adjusting your search or filters to discover more options."}
@@ -1198,14 +952,289 @@ const VehicleListingPage = () => {
                   >
                     <RefreshCw className="h-4 w-4 mr-2" />
                     Clear All Filters
-                  </Button>
-                </div>
+                        </Button>
+                      </div>
               </motion.div>
             )}
           </div>
         </div>
       </div>
     </motion.div>
+  );
+};
+
+// Filter Content Component (for reuse between desktop and mobile)
+const FilterContent = ({
+  searchDates,
+  isSearchMode,
+  handleSearchDateChange,
+  filters,
+  handleFilterChange,
+  filterOptions,
+  priceRange,
+  formatPrice,
+  isMobile = false,
+  onClose,
+}) => {
+  return (
+    <div className="space-y-4 sm:space-y-6">
+                        {/* Search Type & Dates Section */}
+      {(searchDates.pickupDate || searchDates.pickupTime || isSearchMode) && (
+                          <div
+          className={`p-3 sm:p-4 rounded-lg border ${
+                              searchDates.searchType === "hourly"
+                                ? "bg-purple-50 border-purple-200"
+                                : "bg-blue-50 border-blue-200"
+                            }`}
+                          >
+                            <label
+                              className={`block text-sm font-medium mb-3 ${
+                                searchDates.searchType === "hourly"
+                                  ? "text-purple-800"
+                                  : "text-blue-800"
+                              }`}
+                            >
+                              {searchDates.searchType === "hourly" ? (
+                                <Clock className="inline h-4 w-4 mr-1" />
+                              ) : (
+                                <Calendar className="inline h-4 w-4 mr-1" />
+                              )}
+            Search {searchDates.searchType === "hourly" ? "Times" : "Dates"}
+                            </label>
+
+                            {/* Search Type Toggle */}
+                            <div className="mb-4">
+                              <div className="flex bg-white rounded-lg p-1 border">
+                                <button
+                                  type="button"
+                onClick={() => handleSearchDateChange("searchType", "daily")}
+                                  className={`flex-1 py-2 px-3 rounded-md text-xs font-medium transition-all ${
+                                    searchDates.searchType === "daily"
+                                      ? "bg-blue-500 text-white"
+                                      : "text-gray-600 hover:text-blue-600"
+                                  }`}
+                                >
+                                  <Calendar className="inline h-3 w-3 mr-1" />
+                                  Daily
+                                </button>
+                                <button
+                                  type="button"
+                onClick={() => handleSearchDateChange("searchType", "hourly")}
+                                  className={`flex-1 py-2 px-3 rounded-md text-xs font-medium transition-all ${
+                                    searchDates.searchType === "hourly"
+                                      ? "bg-purple-500 text-white"
+                                      : "text-gray-600 hover:text-purple-600"
+                                  }`}
+                                >
+                                  <Clock className="inline h-3 w-3 mr-1" />
+                                  Hourly
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="space-y-3">
+                              <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">
+                {searchDates.searchType === "hourly" ? "Date" : "Pickup Date"}
+                                </label>
+                                <input
+                                  type="date"
+                                  value={searchDates.pickupDate}
+                                  onChange={(e) =>
+                  handleSearchDateChange("pickupDate", e.target.value)
+                                  }
+                                  min={new Date().toISOString().split("T")[0]}
+                                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent bg-white text-sm ${
+                                    searchDates.searchType === "hourly"
+                                      ? "border-purple-300 focus:ring-purple-500"
+                                      : "border-blue-300 focus:ring-blue-500"
+                                  }`}
+                                />
+                              </div>
+
+                              {searchDates.searchType === "daily" ? (
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                                    Return Date
+                                  </label>
+                                  <input
+                                    type="date"
+                                    value={searchDates.returnDate}
+                                    onChange={(e) =>
+                    handleSearchDateChange("returnDate", e.target.value)
+                                    }
+                                    min={
+                                      searchDates.pickupDate ||
+                                      new Date().toISOString().split("T")[0]
+                                    }
+                                    className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-sm"
+                                  />
+                                </div>
+                              ) : (
+                                <>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                                      Start Time
+                                    </label>
+                                    <input
+                                      type="time"
+                                      value={searchDates.pickupTime}
+                                      onChange={(e) =>
+                      handleSearchDateChange("pickupTime", e.target.value)
+                                      }
+                                      className="w-full px-3 py-2 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-sm"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                                      End Time
+                                    </label>
+                                    <input
+                                      type="time"
+                                      value={searchDates.returnTime}
+                                      onChange={(e) =>
+                      handleSearchDateChange("returnTime", e.target.value)
+                                      }
+                                      className="w-full px-3 py-2 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-sm"
+                                    />
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Vehicle Type Filter */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Vehicle Type
+                          </label>
+                          <select
+                            value={filters.type}
+          onChange={(e) => handleFilterChange("type", e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+                          >
+                            <option value="">All Types</option>
+          {filterOptions.types?.map((type) => (
+                              <option key={type} value={type}>
+                                {type}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Brand Filter */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Brand
+                          </label>
+                          <select
+                            value={filters.brand}
+          onChange={(e) => handleFilterChange("brand", e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+                          >
+                            <option value="">All Brands</option>
+          {filterOptions.brands?.map((brand) => (
+                              <option key={brand} value={brand}>
+                                {brand}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Location Filter */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Location
+                          </label>
+                          <select
+                            value={filters.location}
+          onChange={(e) => handleFilterChange("location", e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+                          >
+                            <option value="">All Locations</option>
+          {filterOptions.locations?.map((location) => (
+                              <option key={location} value={location}>
+                                {location}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Price Range Filter */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Price Range (Per{" "}
+          {searchDates.searchType === "hourly" ? "Hour" : "Day"})
+                          </label>
+                          <div className="grid grid-cols-2 gap-3">
+                            <input
+                              type="number"
+                              placeholder="Min"
+                              value={filters.priceMin}
+            onChange={(e) => handleFilterChange("priceMin", e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+                            />
+                            <input
+                              type="number"
+                              placeholder="Max"
+                              value={filters.priceMax}
+            onChange={(e) => handleFilterChange("priceMax", e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+                            />
+                          </div>
+                          {priceRange.min > 0 && (
+                            <p className="text-xs text-gray-500 mt-2 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
+                              Available range: {formatPrice(priceRange.min)} -{" "}
+                              {formatPrice(priceRange.max)}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Rating Filter */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Minimum Rating
+                          </label>
+                          <select
+                            value={filters.rating}
+          onChange={(e) => handleFilterChange("rating", e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+                          >
+                            <option value="">Any Rating</option>
+                            <option value="4.5">⭐ 4.5+ Excellent</option>
+                            <option value="4.0">⭐ 4.0+ Very Good</option>
+                            <option value="3.5">⭐ 3.5+ Good</option>
+                            <option value="3.0">⭐ 3.0+ Average</option>
+                          </select>
+                        </div>
+
+                        {/* Availability Filter */}
+                        <div>
+                          <label className="flex items-center p-3 bg-green-50 rounded-lg border border-green-200 cursor-pointer hover:bg-green-100 transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={filters.available}
+            onChange={(e) => handleFilterChange("available", e.target.checked)}
+                              className="rounded border-gray-300 text-green-600 focus:ring-green-500 w-4 h-4"
+                            />
+                            <span className="ml-3 text-sm font-medium text-gray-700">
+                              <Zap className="inline h-4 w-4 mr-2 text-green-500" />
+                              Available only
+                            </span>
+                          </label>
+                        </div>
+
+      {/* Mobile Apply Button */}
+      {isMobile && (
+                  <Button
+          onClick={onClose}
+          className="w-full bg-blue-600 hover:bg-blue-700 py-3 mt-6"
+                  >
+          Apply Filters
+                  </Button>
+            )}
+          </div>
   );
 };
 
@@ -1275,7 +1304,7 @@ const VehicleCard = ({
       >
         <Card className="bg-white shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border">
           <div className="flex flex-col md:flex-row">
-            <div className="md:w-1/3 h-64 md:h-auto relative overflow-hidden">
+            <div className="md:w-1/3 h-48 sm:h-64 md:h-auto relative overflow-hidden">
               {vehicle.images && vehicle.images[0] ? (
                 <img
                   src={vehicle.images[0]}
@@ -1284,14 +1313,14 @@ const VehicleCard = ({
                 />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center">
-                  <Search className="h-16 w-16 text-white/80" />
+                  <Search className="h-12 w-12 sm:h-16 sm:w-16 text-white/80" />
                 </div>
               )}
 
               {/* Status Badge */}
-              <div className="absolute top-3 right-3">
+              <div className="absolute top-2 sm:top-3 right-2 sm:right-3">
                 <span
-                  className={`px-3 py-1 rounded-full text-xs font-bold ${
+                  className={`px-2 sm:px-3 py-1 rounded-full text-xs font-bold ${
                     vehicle.available
                       ? "bg-green-100 text-green-800 border border-green-300"
                       : "bg-red-100 text-red-800 border border-red-300"
@@ -1304,7 +1333,7 @@ const VehicleCard = ({
 
               {/* Rating Badge */}
               {vehicle.rating && (
-                <div className="absolute top-3 left-3">
+                <div className="absolute top-2 sm:top-3 left-2 sm:left-3">
                   <div className="flex items-center bg-white px-2 py-1 rounded-full shadow-sm border">
                     <Star className="h-3 w-3 text-yellow-500 fill-current mr-1" />
                     <span className="text-xs font-bold text-gray-800">
@@ -1319,7 +1348,7 @@ const VehicleCard = ({
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={onSaveClick}
-                className="absolute bottom-3 right-3 p-2 bg-white rounded-full shadow-lg hover:bg-gray-50 transition-all border"
+                className="absolute bottom-2 sm:bottom-3 right-2 sm:right-3 p-2 bg-white rounded-full shadow-lg hover:bg-gray-50 transition-all border"
               >
                 <Heart
                   className={`h-4 w-4 transition-all duration-300 ${
@@ -1332,7 +1361,7 @@ const VehicleCard = ({
 
               {/* Search Type Indicator */}
               {hasSearchDates && (
-                <div className="absolute bottom-3 left-3">
+                <div className="absolute bottom-2 sm:bottom-3 left-2 sm:left-3">
                   <div
                     className={`text-white px-2 py-1 rounded-full text-xs font-medium ${
                       searchType === "hourly" ? "bg-purple-500" : "bg-blue-500"
@@ -1341,12 +1370,18 @@ const VehicleCard = ({
                     {searchType === "hourly" ? (
                       <>
                         <Clock className="h-3 w-3 inline mr-1" />
+                        <span className="hidden sm:inline">
                         Hourly Available
+                        </span>
+                        <span className="sm:hidden">Available</span>
                       </>
                     ) : (
                       <>
                         <Calendar className="h-3 w-3 inline mr-1" />
+                        <span className="hidden sm:inline">
                         Daily Available
+                        </span>
+                        <span className="sm:hidden">Available</span>
                       </>
                     )}
                   </div>
@@ -1354,20 +1389,20 @@ const VehicleCard = ({
               )}
             </div>
 
-            <div className="md:w-2/3 p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+            <div className="md:w-2/3 p-4 sm:p-6">
+              <div className="flex items-start justify-between mb-3 sm:mb-4">
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-1 sm:mb-2 group-hover:text-blue-600 transition-colors truncate">
                     {vehicle.title}
                   </h3>
-                  <p className="text-gray-600 flex items-center">
-                    <MapPin className="h-4 w-4 mr-2 text-blue-500" />
-                    {vehicle.location}
+                  <p className="text-gray-600 flex items-center text-sm">
+                    <MapPin className="h-4 w-4 mr-2 text-blue-500 flex-shrink-0" />
+                    <span className="truncate">{vehicle.location}</span>
                   </p>
                 </div>
-                <div className="text-right">
+                <div className="text-right ml-4">
                   <div
-                    className={`text-2xl font-bold ${
+                    className={`text-xl sm:text-2xl font-bold ${
                       searchType === "hourly"
                         ? "text-purple-600"
                         : "text-blue-600"
@@ -1375,42 +1410,42 @@ const VehicleCard = ({
                   >
                     {formatPrice(displayPrice.price)}
                   </div>
-                  <div className="text-sm text-gray-500 font-medium flex items-center justify-end">
+                  <div className="text-xs sm:text-sm text-gray-500 font-medium flex items-center justify-end">
                     {displayPrice.icon}
                     per {displayPrice.unit}
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center mb-4">
-                <span className="text-sm bg-gray-100 text-gray-700 px-3 py-1 rounded-full font-medium">
+              <div className="flex items-center mb-3 sm:mb-4">
+                <span className="text-xs sm:text-sm bg-gray-100 text-gray-700 px-2 sm:px-3 py-1 rounded-full font-medium">
                   {vehicle.brand} • {vehicle.type}
                 </span>
               </div>
 
               {/* Specs */}
               {vehicle.specs && (
-                <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-4 sm:mb-6">
                   {vehicle.specs.seats && (
-                    <div className="flex items-center text-gray-600 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200">
-                      <Users className="h-4 w-4 mr-2 text-blue-500" />
-                      <span className="text-sm font-medium">
+                    <div className="flex items-center text-gray-600 bg-blue-50 px-2 sm:px-3 py-1 sm:py-2 rounded-lg border border-blue-200">
+                      <Users className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 text-blue-500 flex-shrink-0" />
+                      <span className="text-xs sm:text-sm font-medium">
                         {vehicle.specs.seats} seats
                       </span>
                     </div>
                   )}
                   {vehicle.specs.fuel && (
-                    <div className="flex items-center text-gray-600 bg-green-50 px-3 py-2 rounded-lg border border-green-200">
-                      <Fuel className="h-4 w-4 mr-2 text-green-500" />
-                      <span className="text-sm font-medium">
+                    <div className="flex items-center text-gray-600 bg-green-50 px-2 sm:px-3 py-1 sm:py-2 rounded-lg border border-green-200">
+                      <Fuel className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 text-green-500 flex-shrink-0" />
+                      <span className="text-xs sm:text-sm font-medium">
                         {vehicle.specs.fuel}
                       </span>
                     </div>
                   )}
                   {vehicle.specs.transmission && (
-                    <div className="flex items-center text-gray-600 bg-purple-50 px-3 py-2 rounded-lg col-span-2 border border-purple-200">
-                      <Settings className="h-4 w-4 mr-2 text-purple-500" />
-                      <span className="text-sm font-medium">
+                    <div className="flex items-center text-gray-600 bg-purple-50 px-2 sm:px-3 py-1 sm:py-2 rounded-lg col-span-2 border border-purple-200">
+                      <Settings className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 text-purple-500 flex-shrink-0" />
+                      <span className="text-xs sm:text-sm font-medium">
                         {vehicle.specs.transmission}
                       </span>
                     </div>
@@ -1418,35 +1453,35 @@ const VehicleCard = ({
                 </div>
               )}
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                   {/* Show alternate pricing */}
                   {searchType === "daily" && vehicle.pricePerHour && (
-                    <span className="text-sm bg-purple-100 text-purple-800 px-3 py-1 rounded-full font-medium border border-purple-200">
+                    <span className="text-xs sm:text-sm bg-purple-100 text-purple-800 px-2 sm:px-3 py-1 rounded-full font-medium border border-purple-200">
                       <Clock className="h-3 w-3 inline mr-1" />
                       {formatPrice(vehicle.pricePerHour)}/hr
                     </span>
                   )}
                   {searchType === "hourly" && vehicle.pricePerDay && (
-                    <span className="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium border border-blue-200">
+                    <span className="text-xs sm:text-sm bg-blue-100 text-blue-800 px-2 sm:px-3 py-1 rounded-full font-medium border border-blue-200">
                       <Calendar className="h-3 w-3 inline mr-1" />
                       {formatPrice(vehicle.pricePerDay)}/day
                     </span>
                   )}
                 </div>
-                <div className="flex gap-3">
+                <div className="flex gap-2 sm:gap-3">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="border-blue-200 text-blue-600 hover:border-blue-300 hover:bg-blue-50"
+                    className="border-blue-200 text-blue-600 hover:border-blue-300 hover:bg-blue-50 px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm"
                   >
-                    <Eye className="h-4 w-4 mr-1" />
-                    Details
+                    <Eye className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                    <span className="hidden sm:inline">Details</span>
                   </Button>
                   <Button
                     onClick={onBookClick}
                     size="sm"
-                    className={`transition-all ${
+                    className={`transition-all px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm ${
                       searchType === "hourly"
                         ? "bg-purple-600 hover:bg-purple-700"
                         : "bg-blue-600 hover:bg-blue-700"
@@ -1454,7 +1489,12 @@ const VehicleCard = ({
                     disabled={!vehicle.available}
                   >
                     {displayPrice.icon}
+                    <span className="hidden sm:inline">
                     {vehicle.available ? "Book Now" : "Not Available"}
+                    </span>
+                    <span className="sm:hidden">
+                      {vehicle.available ? "Book" : "N/A"}
+                    </span>
                   </Button>
                 </div>
               </div>
@@ -1478,7 +1518,7 @@ const VehicleCard = ({
       className="cursor-pointer group"
     >
       <Card className="bg-white shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden h-full border">
-        <div className="relative h-48 overflow-hidden">
+        <div className="relative h-40 sm:h-48 overflow-hidden">
           {vehicle.images && vehicle.images[0] ? (
             <img
               src={vehicle.images[0]}
@@ -1487,29 +1527,32 @@ const VehicleCard = ({
             />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center">
-              <Search className="h-12 w-12 text-white/80" />
+              <Search className="h-8 w-8 sm:h-12 sm:w-12 text-white/80" />
             </div>
           )}
 
           {/* Status Badge */}
-          <div className="absolute top-3 right-3">
+          <div className="absolute top-2 sm:top-3 right-2 sm:right-3">
             <span
-              className={`px-2 py-1 rounded-full text-xs font-bold ${
+              className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-bold ${
                 vehicle.available
                   ? "bg-green-100 text-green-800 border border-green-300"
                   : "bg-red-100 text-red-800 border border-red-300"
               }`}
             >
-              <Zap className="inline h-3 w-3 mr-1" />
+              <Zap className="inline h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1" />
+              <span className="hidden sm:inline">
               {getVehicleAvailability(vehicle)}
+              </span>
+              <span className="sm:hidden">{vehicle.available ? "✓" : "✗"}</span>
             </span>
           </div>
 
           {/* Rating Badge */}
           {vehicle.rating && (
-            <div className="absolute top-3 left-3">
-              <div className="flex items-center bg-white px-2 py-1 rounded-full shadow-sm border">
-                <Star className="h-3 w-3 text-yellow-500 fill-current mr-1" />
+            <div className="absolute top-2 sm:top-3 left-2 sm:left-3">
+              <div className="flex items-center bg-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full shadow-sm border">
+                <Star className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-yellow-500 fill-current mr-0.5 sm:mr-1" />
                 <span className="text-xs font-bold">{vehicle.rating}</span>
               </div>
             </div>
@@ -1520,10 +1563,10 @@ const VehicleCard = ({
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             onClick={onSaveClick}
-            className="absolute bottom-3 right-3 p-2 bg-white rounded-full shadow-lg hover:bg-gray-50 transition-all border"
+            className="absolute bottom-2 sm:bottom-3 right-2 sm:right-3 p-1.5 sm:p-2 bg-white rounded-full shadow-lg hover:bg-gray-50 transition-all border"
           >
             <Heart
-              className={`h-4 w-4 transition-all duration-300 ${
+              className={`h-3 w-3 sm:h-4 sm:w-4 transition-all duration-300 ${
                 isSaved
                   ? "text-red-500 fill-current"
                   : "text-gray-600 hover:text-red-500"
@@ -1533,21 +1576,21 @@ const VehicleCard = ({
 
           {/* Search Type Indicator */}
           {hasSearchDates && (
-            <div className="absolute bottom-3 left-3">
+            <div className="absolute bottom-2 sm:bottom-3 left-2 sm:left-3">
               <div
-                className={`text-white px-2 py-1 rounded-full text-xs font-medium ${
+                className={`text-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium ${
                   searchType === "hourly" ? "bg-purple-500" : "bg-blue-500"
                 }`}
               >
                 {searchType === "hourly" ? (
                   <>
-                    <Clock className="h-3 w-3 inline mr-1" />
-                    Available
+                    <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 inline mr-0.5 sm:mr-1" />
+                    <span className="hidden sm:inline">Available</span>
                   </>
                 ) : (
                   <>
-                    <Calendar className="h-3 w-3 inline mr-1" />
-                    Available
+                    <Calendar className="h-2.5 w-2.5 sm:h-3 sm:w-3 inline mr-0.5 sm:mr-1" />
+                    <span className="hidden sm:inline">Available</span>
                   </>
                 )}
               </div>
@@ -1555,42 +1598,42 @@ const VehicleCard = ({
           )}
         </div>
 
-        <div className="p-4">
-          <div className="mb-3">
-            <h3 className="text-lg font-bold text-gray-900 mb-1 line-clamp-1 group-hover:text-blue-600 transition-colors">
+        <div className="p-3 sm:p-4">
+          <div className="mb-2 sm:mb-3">
+            <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-1 line-clamp-1 group-hover:text-blue-600 transition-colors">
               {vehicle.title}
             </h3>
-            <p className="text-gray-600 flex items-center text-sm">
-              <MapPin className="h-3 w-3 mr-1 text-blue-500" />
-              {vehicle.location}
+            <p className="text-gray-600 flex items-center text-xs sm:text-sm">
+              <MapPin className="h-3 w-3 mr-1 text-blue-500 flex-shrink-0" />
+              <span className="truncate">{vehicle.location}</span>
             </p>
           </div>
 
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm bg-gray-100 text-gray-700 px-2 py-1 rounded-full font-medium">
+          <div className="flex items-center justify-between mb-2 sm:mb-3">
+            <span className="text-xs sm:text-sm bg-gray-100 text-gray-700 px-2 py-1 rounded-full font-medium truncate">
               {vehicle.brand} • {vehicle.type}
             </span>
           </div>
 
           {/* Specs */}
           {vehicle.specs && (
-            <div className="grid grid-cols-2 gap-2 mb-4 text-xs text-gray-600">
+            <div className="grid grid-cols-2 gap-1 sm:gap-2 mb-3 sm:mb-4 text-xs text-gray-600">
               {vehicle.specs.seats && (
-                <div className="flex items-center bg-blue-50 px-2 py-1 rounded border border-blue-200">
-                  <Users className="h-3 w-3 mr-1 text-blue-500" />
-                  {vehicle.specs.seats}
+                <div className="flex items-center bg-blue-50 px-1.5 sm:px-2 py-1 rounded border border-blue-200">
+                  <Users className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1 text-blue-500 flex-shrink-0" />
+                  <span className="truncate">{vehicle.specs.seats}</span>
                 </div>
               )}
               {vehicle.specs.fuel && (
-                <div className="flex items-center bg-green-50 px-2 py-1 rounded border border-green-200">
-                  <Fuel className="h-3 w-3 mr-1 text-green-500" />
-                  {vehicle.specs.fuel}
+                <div className="flex items-center bg-green-50 px-1.5 sm:px-2 py-1 rounded border border-green-200">
+                  <Fuel className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1 text-green-500 flex-shrink-0" />
+                  <span className="truncate">{vehicle.specs.fuel}</span>
                 </div>
               )}
               {vehicle.specs.transmission && (
-                <div className="flex items-center col-span-2 bg-purple-50 px-2 py-1 rounded border border-purple-200">
-                  <Settings className="h-3 w-3 mr-1 text-purple-500" />
-                  {vehicle.specs.transmission}
+                <div className="flex items-center col-span-2 bg-purple-50 px-1.5 sm:px-2 py-1 rounded border border-purple-200">
+                  <Settings className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1 text-purple-500 flex-shrink-0" />
+                  <span className="truncate">{vehicle.specs.transmission}</span>
                 </div>
               )}
             </div>
@@ -1598,9 +1641,9 @@ const VehicleCard = ({
 
           {/* Pricing */}
           <div className="flex items-center justify-between">
-            <div>
+            <div className="flex-1 min-w-0">
               <div
-                className={`text-xl font-bold ${
+                className={`text-lg sm:text-xl font-bold ${
                   searchType === "hourly" ? "text-purple-600" : "text-blue-600"
                 }`}
               >
@@ -1612,12 +1655,12 @@ const VehicleCard = ({
               </div>
               {/* Show alternate pricing */}
               {searchType === "daily" && vehicle.pricePerHour && (
-                <div className="text-xs text-purple-600">
+                <div className="text-xs text-purple-600 truncate">
                   {formatPrice(vehicle.pricePerHour)}/hr
                 </div>
               )}
               {searchType === "hourly" && vehicle.pricePerDay && (
-                <div className="text-xs text-blue-600">
+                <div className="text-xs text-blue-600 truncate">
                   {formatPrice(vehicle.pricePerDay)}/day
                 </div>
               )}
@@ -1626,14 +1669,19 @@ const VehicleCard = ({
               onClick={onBookClick}
               size="sm"
               disabled={!vehicle.available}
-              className={`transition-all ${
+              className={`transition-all ml-2 px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm ${
                 searchType === "hourly"
                   ? "bg-purple-600 hover:bg-purple-700"
                   : "bg-blue-600 hover:bg-blue-700"
               }`}
             >
               {displayPrice.icon}
+              <span className="hidden sm:inline">
               {vehicle.available ? "Book" : "Unavailable"}
+              </span>
+              <span className="sm:hidden">
+                {vehicle.available ? "Book" : "N/A"}
+              </span>
             </Button>
           </div>
         </div>

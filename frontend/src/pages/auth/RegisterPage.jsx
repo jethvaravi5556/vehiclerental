@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Mail, Lock, User } from "lucide-react";
-import { toast } from "react-hot-toast";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Card from "../../components/ui/Card";
-import axios from "../../axiosConfig";
 import { useAuth } from "../../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+
 const RegisterPage = () => {
   const navigate = useNavigate();
   const { register } = useAuth();
@@ -21,6 +20,15 @@ const RegisterPage = () => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
 
+  // ✅ Password rules check
+  const passwordChecks = {
+    length: formData.password.length >= 8,
+    upper: /[A-Z]/.test(formData.password),
+    lower: /[a-z]/.test(formData.password),
+    digit: /\d/.test(formData.password),
+    special: /[\W_]/.test(formData.password),
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -32,7 +40,6 @@ const RegisterPage = () => {
   const validateForm = () => {
     const newErrors = {};
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
 
     if (!formData.name) newErrors.name = "Name is required";
 
@@ -44,9 +51,17 @@ const RegisterPage = () => {
 
     if (!formData.password) {
       newErrors.password = "Password is required";
-    } else if (!passwordPattern.test(formData.password)) {
+    } else if (
+      !(
+        passwordChecks.length &&
+        passwordChecks.upper &&
+        passwordChecks.lower &&
+        passwordChecks.digit &&
+        passwordChecks.special
+      )
+    ) {
       newErrors.password =
-        "Password must be at least 8 characters, include uppercase, lowercase, number and special character";
+        "Password must include uppercase, lowercase, number and special character";
     }
 
     if (!formData.confirmPassword) {
@@ -70,13 +85,13 @@ const RegisterPage = () => {
         email: formData.email,
         password: formData.password,
       });
+
       if (result.success) {
-        navigate("home");
-      } else {
-        toast.error(result.error);
+        navigate("/"); // ✅ redirect on success
       }
+      // ❌ No extra toast here, AuthContext handles errors like "User already exists"
     } catch (err) {
-      toast.error("Something went wrong");
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -107,6 +122,7 @@ const RegisterPage = () => {
         >
           <Card glass>
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <User className="inline h-4 w-4 mr-1" />
@@ -121,6 +137,7 @@ const RegisterPage = () => {
                 />
               </div>
 
+              {/* Email */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <Mail className="inline h-4 w-4 mr-1" />
@@ -136,6 +153,7 @@ const RegisterPage = () => {
                 />
               </div>
 
+              {/* Password */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <Lock className="inline h-4 w-4 mr-1" />
@@ -163,34 +181,43 @@ const RegisterPage = () => {
                     )}
                   </button>
                 </div>
+
+                {/* ✅ Password requirements live hint */}
+                {formData.password && (
+                  <ul className="mt-2 text-xs text-gray-600 space-y-1">
+                    <li className={passwordChecks.length ? "text-green-600" : "text-red-500"}>
+                      • At least 8 characters
+                    </li>
+                    <li className={passwordChecks.upper ? "text-green-600" : "text-red-500"}>
+                      • At least one uppercase letter
+                    </li>
+                    <li className={passwordChecks.lower ? "text-green-600" : "text-red-500"}>
+                      • At least one lowercase letter
+                    </li>
+                    <li className={passwordChecks.digit ? "text-green-600" : "text-red-500"}>
+                      • At least one digit
+                    </li>
+                    <li className={passwordChecks.special ? "text-green-600" : "text-red-500"}>
+                      • At least one special character
+                    </li>
+                  </ul>
+                )}
               </div>
 
+              {/* Confirm Password */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <Lock className="inline h-4 w-4 mr-1" />
                   Confirm Password
                 </label>
-                <div className="relative">
-                  <Input
-                    name="confirmPassword"
-                    type="password"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    placeholder="Re-enter your password"
-                    error={errors.confirmPassword}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-5 w-5" />
-                    ) : (
-                      <Eye className="h-5 w-5" />
-                    )}
-                  </button>
-                </div>
+                <Input
+                  name="confirmPassword"
+                  type="password"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  placeholder="Re-enter your password"
+                  error={errors.confirmPassword}
+                />
               </div>
 
               <Button

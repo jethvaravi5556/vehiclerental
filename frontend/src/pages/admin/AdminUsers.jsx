@@ -18,7 +18,7 @@ import {
   Save,
   Users,
   TrendingUp,
-  AlertCircle
+  AlertCircle,
 } from "lucide-react";
 import axios from "../../axiosConfig";
 import AdminLayout from "../../components/layout/AdminLayout";
@@ -41,15 +41,23 @@ const AdminUsers = () => {
   const [showUserModal, setShowUserModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editForm, setEditForm] = useState({ name: "", email: "", role: "user" });
-  const [createForm, setCreateForm] = useState({ name: "", email: "", role: "user" });
+  const [editForm, setEditForm] = useState({
+    name: "",
+    email: "",
+    role: "user",
+  });
+  const [createForm, setCreateForm] = useState({
+    name: "",
+    email: "",
+    role: "user",
+  });
   const [refreshing, setRefreshing] = useState(false);
 
   // Fetch users
   const fetchUsers = async (showRefreshing = false) => {
     if (showRefreshing) setRefreshing(true);
     else setLoading(true);
-    
+
     try {
       const response = await axios.get("/api/admin/users");
       setUsers(response.data);
@@ -72,12 +80,15 @@ const AdminUsers = () => {
   // Calculate user stats
   const userStats = useMemo(() => {
     const total = users.length;
-    const admins = users.filter(u => u.role === "admin").length;
-    const regularUsers = users.filter(u => u.role === "user").length;
-    const newThisMonth = users.filter(u => {
+    const admins = users.filter((u) => u.role === "admin").length;
+    const regularUsers = users.filter((u) => u.role === "user").length;
+    const newThisMonth = users.filter((u) => {
       const userDate = new Date(u.createdAt);
       const now = new Date();
-      return userDate.getMonth() === now.getMonth() && userDate.getFullYear() === now.getFullYear();
+      return (
+        userDate.getMonth() === now.getMonth() &&
+        userDate.getFullYear() === now.getFullYear()
+      );
     }).length;
 
     return { total, admins, regularUsers, newThisMonth };
@@ -86,7 +97,9 @@ const AdminUsers = () => {
   const handleRoleChange = async (userId, newRole) => {
     const user = users.find((u) => u._id === userId);
     const confirmed = window.confirm(
-      `Are you sure you want to change ${user?.name}'s role to ${newRole.toUpperCase()}?`
+      `Are you sure you want to change ${
+        user?.name
+      }'s role to ${newRole.toUpperCase()}?`
     );
     if (!confirmed) return;
 
@@ -137,7 +150,7 @@ const AdminUsers = () => {
     try {
       const response = await axios.put(`/api/admin/users/${editForm._id}`, {
         name: editForm.name,
-        email: editForm.email
+        email: editForm.email,
       });
       const updated = users.map((u) =>
         u._id === editForm._id ? { ...u, ...response.data.user } : u
@@ -154,13 +167,15 @@ const AdminUsers = () => {
   };
 
   const handleDeleteUser = async (userId, userName) => {
-    const confirmed = window.confirm(`Are you sure you want to delete ${userName}?`);
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${userName}?`
+    );
     if (!confirmed) return;
 
     setUpdating(userId);
     try {
       await axios.delete(`/api/admin/users/${userId}`);
-      setUsers(users.filter(u => u._id !== userId));
+      setUsers(users.filter((u) => u._id !== userId));
       toast.success("User deleted successfully");
     } catch (error) {
       console.error("Error deleting user:", error);
@@ -252,7 +267,7 @@ const AdminUsers = () => {
 
   if (loading) {
     return (
-      <AdminLayout 
+      <AdminLayout
         title="User Management"
         subtitle="Manage users, roles, and permissions"
       >
@@ -264,11 +279,11 @@ const AdminUsers = () => {
   }
 
   return (
-    <AdminLayout 
+    <AdminLayout
       title="User Management"
       subtitle="Manage users, roles, and permissions"
-      onRefresh={() => fetchUsers(true)}
-      refreshing={refreshing}
+      // onRefresh={() => fetchUsers(true)}
+      // refreshing={refreshing}
     >
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -278,14 +293,17 @@ const AdminUsers = () => {
         {/* Stats Header */}
         <Card className="bg-gradient-to-r from-blue-600 to-purple-600 border-0 shadow-xl text-white overflow-hidden">
           <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div>
-                <h2 className="text-2xl font-bold mb-2">User Analytics</h2>
-                <p className="text-purple-100">
-                  Total Users: {userStats.total} | Admins: {userStats.admins} | Regular Users: {userStats.regularUsers}
+                <h2 className="text-xl sm:text-2xl font-bold mb-2">
+                  User Analytics
+                </h2>
+                <p className="text-purple-100 text-sm sm:text-base">
+                  Total Users: {userStats.total} | Admins: {userStats.admins} |
+                  Regular Users: {userStats.regularUsers}
                 </p>
               </div>
-              <div className="flex space-x-3">
+              <div className="flex flex-wrap gap-2 sm:space-x-3">
                 <Button
                   variant="secondary"
                   size="sm"
@@ -308,32 +326,32 @@ const AdminUsers = () => {
             </div>
 
             {/* Quick Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {[
-                { 
-                  label: "Total Users", 
-                  value: userStats.total, 
+                {
+                  label: "Total Users",
+                  value: userStats.total,
                   icon: Users,
-                  change: "+5%"
+                  change: "+5%",
                 },
-                { 
-                  label: "Admins", 
-                  value: userStats.admins, 
+                {
+                  label: "Admins",
+                  value: userStats.admins,
                   icon: Shield,
-                  change: "0%"
+                  change: "0%",
                 },
-                { 
-                  label: "Regular Users", 
-                  value: userStats.regularUsers, 
+                {
+                  label: "Regular Users",
+                  value: userStats.regularUsers,
                   icon: User,
-                  change: "+8%"
+                  change: "+8%",
                 },
-                { 
-                  label: "New This Month", 
-                  value: userStats.newThisMonth, 
+                {
+                  label: "New This Month",
+                  value: userStats.newThisMonth,
                   icon: TrendingUp,
-                  change: "+12%"
-                }
+                  change: "+12%",
+                },
               ].map((stat, i) => (
                 <motion.div
                   key={stat.label}
@@ -348,7 +366,9 @@ const AdminUsers = () => {
                       <p className="text-2xl font-bold">{stat.value}</p>
                       <div className="flex items-center mt-1">
                         <TrendingUp className="h-3 w-3 text-green-300 mr-1" />
-                        <span className="text-xs text-green-300">{stat.change}</span>
+                        <span className="text-xs text-green-300">
+                          {stat.change}
+                        </span>
                       </div>
                     </div>
                     <stat.icon className="h-8 w-8 text-purple-200" />
@@ -376,11 +396,11 @@ const AdminUsers = () => {
               </div>
 
               {/* Filters */}
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
                 <select
                   value={roleFilter}
                   onChange={(e) => setRoleFilter(e.target.value)}
-                  className="px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent w-full sm:w-auto"
                 >
                   <option value="all">All Roles</option>
                   <option value="admin">Admin</option>
@@ -391,7 +411,7 @@ const AdminUsers = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => setShowFilters(!showFilters)}
-                  className="border-gray-200"
+                  className="border-gray-200 w-full sm:w-auto"
                 >
                   <Filter className="h-4 w-4 mr-2" />
                   Filters
@@ -413,15 +433,15 @@ const AdminUsers = () => {
                   exit={{ height: 0, opacity: 0 }}
                   className="mt-4 pt-4 border-t border-gray-200"
                 >
-                  <div className="flex flex-wrap gap-4">
-                    <div>
+                  <div className="flex flex-col sm:flex-row flex-wrap gap-4">
+                    <div className="w-full sm:w-auto">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Sort By
                       </label>
                       <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value)}
-                        className="px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                        className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-full sm:w-auto"
                       >
                         <option value="name">Name</option>
                         <option value="email">Email</option>
@@ -429,14 +449,14 @@ const AdminUsers = () => {
                         <option value="createdAt">Join Date</option>
                       </select>
                     </div>
-                    <div>
+                    <div className="w-full sm:w-auto">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Order
                       </label>
                       <select
                         value={sortOrder}
                         onChange={(e) => setSortOrder(e.target.value)}
-                        className="px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                        className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-full sm:w-auto"
                       >
                         <option value="asc">Ascending</option>
                         <option value="desc">Descending</option>
@@ -559,7 +579,9 @@ const AdminUsers = () => {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleDeleteUser(user._id, user.name)}
+                              onClick={() =>
+                                handleDeleteUser(user._id, user.name)
+                              }
                               disabled={updating === user._id}
                               className="hover:bg-red-50 hover:text-red-600"
                             >
@@ -635,10 +657,13 @@ const AdminUsers = () => {
               </div>
 
               <div className="flex justify-end space-x-3">
-                <Button variant="outline" onClick={() => setShowUserModal(false)}>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowUserModal(false)}
+                >
                   Close
                 </Button>
-                <Button 
+                <Button
                   onClick={() => {
                     setEditForm(selectedUser);
                     setShowUserModal(false);
@@ -667,7 +692,9 @@ const AdminUsers = () => {
               <input
                 type="text"
                 value={createForm.name}
-                onChange={(e) => setCreateForm(prev => ({ ...prev, name: e.target.value }))}
+                onChange={(e) =>
+                  setCreateForm((prev) => ({ ...prev, name: e.target.value }))
+                }
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 placeholder="Enter full name"
               />
@@ -679,7 +706,9 @@ const AdminUsers = () => {
               <input
                 type="email"
                 value={createForm.email}
-                onChange={(e) => setCreateForm(prev => ({ ...prev, email: e.target.value }))}
+                onChange={(e) =>
+                  setCreateForm((prev) => ({ ...prev, email: e.target.value }))
+                }
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 placeholder="Enter email address"
               />
@@ -690,7 +719,9 @@ const AdminUsers = () => {
               </label>
               <select
                 value={createForm.role}
-                onChange={(e) => setCreateForm(prev => ({ ...prev, role: e.target.value }))}
+                onChange={(e) =>
+                  setCreateForm((prev) => ({ ...prev, role: e.target.value }))
+                }
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               >
                 <option value="user">User</option>
@@ -701,19 +732,20 @@ const AdminUsers = () => {
               <div className="flex items-center">
                 <AlertCircle className="h-5 w-5 text-blue-600 mr-2" />
                 <p className="text-sm text-blue-800">
-                  A temporary password (Dummy@123) will be assigned. User should change it on first login.
+                  A temporary password (Dummy@123) will be assigned. User should
+                  change it on first login.
                 </p>
               </div>
             </div>
             <div className="flex justify-end space-x-3">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setShowCreateModal(false)}
                 disabled={updating === "create"}
               >
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={handleCreateUser}
                 disabled={updating === "create"}
                 className="bg-gradient-to-r from-purple-600 to-pink-600"
@@ -748,8 +780,10 @@ const AdminUsers = () => {
                 </label>
                 <input
                   type="text"
-                  value={editForm.name || ''}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                  value={editForm.name || ""}
+                  onChange={(e) =>
+                    setEditForm((prev) => ({ ...prev, name: e.target.value }))
+                  }
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 />
               </div>
@@ -759,20 +793,22 @@ const AdminUsers = () => {
                 </label>
                 <input
                   type="email"
-                  value={editForm.email || ''}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                  value={editForm.email || ""}
+                  onChange={(e) =>
+                    setEditForm((prev) => ({ ...prev, email: e.target.value }))
+                  }
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 />
               </div>
               <div className="flex justify-end space-x-3">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => setShowEditModal(false)}
                   disabled={updating === "update"}
                 >
                   Cancel
                 </Button>
-                <Button 
+                <Button
                   onClick={handleUpdateUser}
                   disabled={updating === "update"}
                   className="bg-gradient-to-r from-green-600 to-green-700"

@@ -131,11 +131,13 @@ const LoginPage = () => {
                 {/* {" "} */}
                 <div className="mt-2 text-right">
                   <button
+                    type="button"   // <-- add this
                     onClick={() => navigate("/forgot-password")}
                     className="text-sm text-blue-600 hover:underline"
                   >
                     Forgot password?
                   </button>
+
                 </div>
               </div>
 

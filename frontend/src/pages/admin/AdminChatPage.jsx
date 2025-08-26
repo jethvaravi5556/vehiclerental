@@ -154,8 +154,20 @@ const AdminChatPage = () => {
     setActiveConversation(conversationData.user._id);
     setSelectedUser(conversationData.user);
     setShowUserInfo(false);
-    setShowConversationList(false);
+    // Hide sidebar on small screens for better responsiveness
+    if (window.innerWidth < 1024) {
+      setShowConversationList(false);
+    }
   };
+
+  // Restore selected user when activeConversation is known (after refresh/navigation)
+  useEffect(() => {
+    if (!activeConversation || !conversations || conversations.length === 0) return;
+    const conv = conversations.find(c => c.user?._id === activeConversation);
+    if (conv && (!selectedUser || selectedUser._id !== conv.user._id)) {
+      setSelectedUser(conv.user);
+    }
+  }, [activeConversation, conversations]);
 
   const formatTime = (timestamp) => {
     return new Date(timestamp).toLocaleTimeString([], { 
@@ -208,7 +220,7 @@ const AdminChatPage = () => {
     <div className="fixed inset-0 z-50 bg-white">
       <div className="flex h-full">
         {/* Sidebar */}
-        <div className={`${showConversationList ? 'w-80' : 'w-0 lg:w-80'} bg-white border-r border-gray-200 flex flex-col transition-all duration-300 overflow-hidden`}>
+        <div className={`${showConversationList ? 'translate-x-0' : '-translate-x-full'} transform transition-transform duration-300 ease-in-out fixed lg:relative inset-y-0 left-0 z-40 w-full sm:w-80 lg:w-96 bg-white border-r border-gray-200 flex flex-col lg:translate-x-0`}>
           {/* Header */}
           <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
             <div className="flex items-center justify-between mb-4">
@@ -328,12 +340,20 @@ const AdminChatPage = () => {
           </div>
         </div>
 
+        {/* Overlay for mobile sidebar */}
+        {showConversationList && (
+          <div 
+            className="lg:hidden fixed inset-0 bg-black/50 z-30"
+            onClick={() => setShowConversationList(false)}
+          />
+        )}
+
         {/* Chat Area */}
         <div className="flex-1 flex flex-col bg-gray-50">
           {activeConversation && selectedUser ? (
             <>
               {/* Chat Header */}
-              <div className="bg-white border-b border-gray-200 p-4 flex items-center justify-between">
+              <div className="bg-white border-b border-gray-200 p-3 sm:p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setShowConversationList(true)}
@@ -342,16 +362,16 @@ const AdminChatPage = () => {
                     <Users className="h-4 w-4" />
                   </button>
                   <div className="relative">
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
                       {selectedUser.name?.charAt(0) || 'U'}
                     </div>
                     {isUserOnline(selectedUser._id) && (
-                      <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                      <div className="absolute -bottom-1 -right-1 w-2 h-2 sm:w-3 sm:h-3 bg-green-500 rounded-full border-2 border-white"></div>
                     )}
                   </div>
                   <div>
-                    <h3 className="font-bold">{selectedUser.name || 'Unknown User'}</h3>
-                    <p className="text-sm text-gray-600">
+                    <h3 className="font-bold text-sm sm:text-base">{selectedUser.name || 'Unknown User'}</h3>
+                    <p className="text-xs sm:text-sm text-gray-600">
                       {isUserOnline(selectedUser._id) ? 'Online' : 'Offline'}
                     </p>
                   </div>
@@ -362,10 +382,10 @@ const AdminChatPage = () => {
                     onClick={() => setShowUserInfo(!showUserInfo)}
                     className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                   >
-                    <Info className="h-4 w-4" />
+                    <Info className="h-3 w-3 sm:h-4 sm:w-4" />
                   </button>
                   <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                    <MoreVertical className="h-4 w-4" />
+                    <MoreVertical className="h-3 w-3 sm:h-4 sm:w-4" />
                   </button>
                 </div>
               </div>
@@ -388,15 +408,15 @@ const AdminChatPage = () => {
               )}
 
               {/* Messages Area */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4">
                 {loading ? (
                   <div className="flex items-center justify-center h-full">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                   </div>
                 ) : messages.length === 0 ? (
-                  <div className="text-center text-gray-500 py-8">
-                    <MessageCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                    <p>No messages yet. Start the conversation!</p>
+                  <div className="text-center text-gray-500 py-6 sm:py-8">
+                    <MessageCircle className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-4 text-gray-300" />
+                    <p className="text-sm sm:text-base">No messages yet. Start the conversation!</p>
                   </div>
                 ) : (
                   <>
@@ -412,22 +432,22 @@ const AdminChatPage = () => {
                           className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} gap-2`}
                         >
                           {!isOwnMessage && showAvatar && (
-                            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                            <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-xs sm:text-sm font-bold flex-shrink-0">
                               {selectedUser?.name?.charAt(0) || 'U'}
                             </div>
                           )}
-                          {!isOwnMessage && !showAvatar && <div className="w-8" />}
+                          {!isOwnMessage && !showAvatar && <div className="w-6 sm:w-8" />}
                           
-                          <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${
+                          <div className={`max-w-[80%] sm:max-w-xs lg:max-w-md px-3 sm:px-4 py-2 rounded-2xl ${
                             isOwnMessage
                               ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
                               : 'bg-white border border-gray-200 text-gray-900'
                           } shadow-sm`}>
-                            <p className="text-sm leading-relaxed">{message.message}</p>
+                            <p className="text-xs sm:text-sm leading-relaxed break-words">{message.message}</p>
                             <div className={`flex items-center justify-between mt-1 gap-2 ${
                               isOwnMessage ? 'text-blue-100' : 'text-gray-500'
                             }`}>
-                              <span className="text-xs">
+                              <span className="text-[10px] sm:text-xs">
                                 {formatTime(message.timestamp || message.createdAt)}
                               </span>
                               {isOwnMessage && (
@@ -476,8 +496,8 @@ const AdminChatPage = () => {
               </div>
 
               {/* Input Area */}
-              <div className="bg-white border-t border-gray-200 p-4">
-                <div className="flex items-center gap-2">
+              <div className="bg-white border-t border-gray-200 p-3 sm:p-4">
+                <div className="flex items-end gap-2">
                   <div className="flex-1 relative">
                     <textarea
                       ref={messageInputRef}
@@ -485,22 +505,22 @@ const AdminChatPage = () => {
                       onChange={handleTyping}
                       onKeyPress={handleKeyPress}
                       placeholder="Type your message..."
-                      className="w-full px-4 py-2 border border-gray-300 rounded-full resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent max-h-24"
+                      className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-full resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent max-h-24 sm:max-h-32 text-sm"
                       rows="1"
                       disabled={isSending}
-                      style={{ minHeight: '40px' }}
+                      style={{ minHeight: '36px' }}
                     />
                   </div>
                   
                   <button
                     onClick={handleSendMessage}
                     disabled={!currentMessage.trim() || !isConnected || isSending}
-                    className="rounded-full w-10 h-10 p-0 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white flex items-center justify-center transition-all duration-200"
+                    className="rounded-full w-9 h-9 sm:w-10 sm:h-10 p-0 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white flex items-center justify-center transition-all duration-200"
                   >
                     {isSending ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white"></div>
                     ) : (
-                      <Send className="h-4 w-4" />
+                      <Send className="h-3 w-3 sm:h-4 sm:w-4" />
                     )}
                   </button>
                 </div>
@@ -515,13 +535,13 @@ const AdminChatPage = () => {
             </>
           ) : (
             /* No Conversation Selected */
-            <div className="flex-1 flex items-center justify-center">
+            <div className="flex-1 flex items-center justify-center p-4">
               <div className="text-center">
-                <div className="w-32 h-32 bg-gradient-to-br from-gray-200 to-gray-300 rounded-full flex items-center justify-center mb-6 mx-auto">
-                  <MessageCircle className="h-16 w-16 text-gray-400" />
+                <div className="w-24 h-24 sm:w-32 sm:h-32 bg-gradient-to-br from-gray-200 to-gray-300 rounded-full flex items-center justify-center mb-6 mx-auto">
+                  <MessageCircle className="h-12 w-12 sm:h-16 sm:w-16 text-gray-400" />
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-4">Select a Conversation</h3>
-                <p className="text-gray-600 mb-8">Choose a conversation from the sidebar to start chatting with customers.</p>
+                <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">Select a Conversation</h3>
+                <p className="text-gray-600 mb-8 text-sm sm:text-base">Choose a conversation from the sidebar to start chatting with customers.</p>
                 <button
                   onClick={() => setShowConversationList(true)}
                   className="lg:hidden bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 mx-auto"

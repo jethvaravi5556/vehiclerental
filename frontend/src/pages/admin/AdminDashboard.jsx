@@ -41,11 +41,9 @@ const AdminDashboard = () => {
   const [vehicles, setVehicles] = useState([])
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
 
-  const fetchAdminData = async (showRefreshing = false) => {
-    if (showRefreshing) setRefreshing(true)
-    else setLoading(true)
+  const fetchAdminData = async () => {
+    setLoading(true)
     
     try {
       const [usersRes, bookingsRes, vehiclesRes] = await Promise.all([
@@ -73,16 +71,11 @@ const AdminDashboard = () => {
         cancelledBookings,
         revenueGrowth: 12.5 // Mock growth percentage
       })
-
-      if (showRefreshing) {
-        toast.success("Data refreshed successfully!")
-      }
     } catch (err) {
       console.error("Error fetching admin data", err)
       toast.error("Failed to fetch admin data")
     } finally {
       setLoading(false)
-      setRefreshing(false)
     }
   }
 
@@ -113,14 +106,10 @@ const AdminDashboard = () => {
     <AdminLayout 
       title="Admin Dashboard"
       subtitle="Manage your vehicle rental platform with ease"
-      onRefresh={() => fetchAdminData(true)}
-      refreshing={refreshing}
     >
       <AdminOverview 
         stats={stats} 
         loading={loading} 
-        onRefresh={() => fetchAdminData(true)} 
-        refreshing={refreshing}
         onQuickAction={handleQuickAction}
         unreadCount={unreadCount}
         onlineUsers={onlineUsers}
@@ -133,8 +122,6 @@ const AdminDashboard = () => {
 const AdminOverview = ({ 
   stats, 
   loading, 
-  onRefresh, 
-  refreshing, 
   onQuickAction, 
   unreadCount, 
   onlineUsers, 
@@ -188,9 +175,9 @@ const AdminOverview = ({
   ]
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 sm:space-y-6 lg:space-y-8">
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
         {statCards.map((stat, i) => (
           <motion.div
             key={stat.title}
@@ -201,19 +188,19 @@ const AdminOverview = ({
             className="group cursor-pointer"
           >
             <Card className={`${stat.bgColor} border-0 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden relative`}>
-              <div className="flex items-center justify-between p-6">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">{stat.title}</p>
-                  <p className="text-3xl font-bold text-gray-900 group-hover:scale-105 transition-transform">
+              <div className="flex items-center justify-between p-4 sm:p-6">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1 truncate">{stat.title}</p>
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 group-hover:scale-105 transition-transform truncate">
                     {stat.value}
                   </p>
                   <div className="flex items-center mt-2">
-                    <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
-                    <span className="text-sm font-medium text-green-600">{stat.change}</span>
+                    <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-green-500 mr-1" />
+                    <span className="text-xs sm:text-sm font-medium text-green-600">{stat.change}</span>
                   </div>
                 </div>
-                <div className={`p-4 rounded-2xl bg-gradient-to-r ${stat.color} shadow-lg group-hover:scale-110 transition-transform`}>
-                  <stat.icon className="h-8 w-8 text-white" />
+                <div className={`p-2 sm:p-3 lg:p-4 rounded-xl sm:rounded-2xl bg-gradient-to-r ${stat.color} shadow-lg group-hover:scale-110 transition-transform flex-shrink-0 ml-2`}>
+                  <stat.icon className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 text-white" />
                 </div>
               </div>
               <div className={`absolute inset-0 bg-gradient-to-r ${stat.color} opacity-0 group-hover:opacity-5 transition-opacity`} />
@@ -229,22 +216,22 @@ const AdminOverview = ({
         transition={{ delay: 0.3 }}
       >
         <Card className="bg-gradient-to-r from-indigo-500 to-purple-600 border-0 shadow-xl text-white">
-          <div className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-white/20 rounded-2xl">
-                  <MessageCircle className="h-8 w-8" />
+          <div className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                <div className="p-2 sm:p-3 bg-white/20 rounded-xl sm:rounded-2xl flex-shrink-0">
+                  <MessageCircle className="h-6 w-6 sm:h-8 sm:w-8" />
                 </div>
-                <div>
-                  <h3 className="text-xl font-bold mb-1">Chat Support</h3>
-                  <div className="flex items-center gap-4 text-sm opacity-90">
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-lg sm:text-xl font-bold mb-1">Chat Support</h3>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm opacity-90">
                     <div className="flex items-center gap-2">
                       <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-red-400'}`}></div>
                       <span>{isConnected ? 'Connected' : 'Disconnected'}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <UserCheck className="h-4 w-4" />
-                      <span>{onlineUsers.length} users online</span>
+                      <UserCheck className="h-3 w-3 sm:h-4 sm:w-4" />
+                      <span className="truncate">{onlineUsers.length} users online</span>
                     </div>
                     {unreadCount > 0 && (
                       <div className="flex items-center gap-2">
@@ -258,13 +245,15 @@ const AdminOverview = ({
               <Button
                 onClick={() => onQuickAction("chat")}
                 variant="secondary"
-                className="bg-white/20 hover:bg-white/30 text-white border-white/30 relative"
+                size="sm"
+                className="bg-white/20 hover:bg-white/30 text-white border-white/30 relative w-full sm:w-auto"
               >
                 <MessageCircle className="h-4 w-4 mr-2" />
-                Open Chat
+                <span className="hidden sm:inline">Open Chat</span>
+                <span className="sm:hidden">Chat</span>
                 {unreadCount > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                    {unreadCount}
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full min-w-[1.25rem] text-center">
+                    {unreadCount > 99 ? '99+' : unreadCount}
                   </span>
                 )}
               </Button>
@@ -280,32 +269,32 @@ const AdminOverview = ({
         transition={{ delay: 0.4 }}
       >
         <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-xl">
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-gray-900">Booking Analytics</h3>
-              <div className="flex space-x-2">
-                <Button variant="outline" size="sm" className="border-gray-200">
+          <div className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 sm:mb-6">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900">Booking Analytics</h3>
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <Button variant="outline" size="sm" className="border-gray-200 w-full sm:w-auto">
                   <Filter className="h-4 w-4 mr-2" />
                   Filter
                 </Button>
-                <Button variant="outline" size="sm" className="border-gray-200">
+                <Button variant="outline" size="sm" className="border-gray-200 w-full sm:w-auto">
                   <Download className="h-4 w-4 mr-2" />
                   Export
                 </Button>
               </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
               {bookingStats.map((stat, i) => (
                 <motion.div
                   key={stat.label}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.5 + i * 0.1 }}
-                  className="text-center p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors"
+                  className="text-center p-3 sm:p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors"
                 >
-                  <p className="text-sm font-medium text-gray-600 mb-2">{stat.label}</p>
-                  <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+                  <p className="text-xs sm:text-sm font-medium text-gray-600 mb-2 truncate">{stat.label}</p>
+                  <p className={`text-xl sm:text-2xl font-bold ${stat.color}`}>{stat.value}</p>
                 </motion.div>
               ))}
             </div>
@@ -320,43 +309,43 @@ const AdminOverview = ({
         transition={{ delay: 0.6 }}
       >
         <Card className="bg-gradient-to-r from-blue-600 to-purple-600 border-0 shadow-xl text-white">
-          <div className="p-6">
-            <h3 className="text-xl font-bold mb-4">Quick Actions</h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="p-4 sm:p-6">
+            <h3 className="text-lg sm:text-xl font-bold mb-4">Quick Actions</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <Button 
                 variant="secondary" 
                 onClick={() => onQuickAction("users")}
-                className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                className="bg-white/20 hover:bg-white/30 text-white border-white/30 w-full justify-center sm:justify-start"
               >
-                <Users className="h-4 w-4 mr-2" />
-                Manage Users
+                <Users className="h-4 w-4 mr-2 flex-shrink-0" />
+                <span className="truncate">Manage Users</span>
               </Button>
               <Button 
                 variant="secondary" 
                 onClick={() => onQuickAction("vehicles")}
-                className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                className="bg-white/20 hover:bg-white/30 text-white border-white/30 w-full justify-center sm:justify-start"
               >
-                <Car className="h-4 w-4 mr-2" />
-                Manage Vehicles
+                <Car className="h-4 w-4 mr-2 flex-shrink-0" />
+                <span className="truncate">Manage Vehicles</span>
               </Button>
               <Button 
                 variant="secondary" 
                 onClick={() => onQuickAction("bookings")}
-                className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                className="bg-white/20 hover:bg-white/30 text-white border-white/30 w-full justify-center sm:justify-start"
               >
-                <Eye className="h-4 w-4 mr-2" />
-                View Bookings
+                <Eye className="h-4 w-4 mr-2 flex-shrink-0" />
+                <span className="truncate">View Bookings</span>
               </Button>
               <Button 
                 variant="secondary" 
                 onClick={() => onQuickAction("chat")}
-                className="bg-white/20 hover:bg-white/30 text-white border-white/30 relative"
+                className="bg-white/20 hover:bg-white/30 text-white border-white/30 relative w-full justify-center sm:justify-start"
               >
-                <MessageCircle className="h-4 w-4 mr-2" />
-                Chat Support
+                <MessageCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+                <span className="truncate">Chat Support</span>
                 {unreadCount > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                    {unreadCount}
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full min-w-[1.25rem] text-center">
+                    {unreadCount > 99 ? '99+' : unreadCount}
                   </span>
                 )}
               </Button>

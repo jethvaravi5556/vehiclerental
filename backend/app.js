@@ -36,70 +36,81 @@ const io = new Server(server, {
   pingInterval: 25000
 });
 
-// Store online users and connections
-const onlineUsers = new Map(); // userId -> { socketId, userInfo }
-const adminSockets = new Map(); // adminId -> socketId
-const userSockets = new Map(); // userId -> socketId
-const socketToUser = new Map(); // socketId -> userId
+// Store online users with consistent structure
+const onlineUsers = new Map(); // userId -> { socketId, userId, userName, role, isOnline, joinedAt }
+const socketToUser = new Map(); // socketId -> { userId, userName, role }
+
+// Helper function to get all online users as array
+const getOnlineUsersArray = () => {
+  return Array.from(onlineUsers.values()).map(user => ({
+    userId: user.userId,
+    userName: user.userName,
+    role: user.role,
+    isOnline: true,
+    socketId: user.socketId,
+    joinedAt: user.joinedAt
+  }));
+};
+
+// Helper function to get online admins count
+const getOnlineAdminsCount = () => {
+  return Array.from(onlineUsers.values()).filter(user => user.role === 'admin').length;
+};
 
 io.on("connection", (socket) => {
-  console.log("🔌 New client connected:", socket.id);
+  console.log("New client connected:", socket.id);
 
   // User joins with their ID and role
-  socket.on("join", ({ userId, role, isAdmin }) => {
-    console.log(`👤 User joining: ${userId} (${role})`);
+  socket.on("join", ({ userId, role, isAdmin, name }) => {
+    console.log(`User joining: ${userId} (${role}) - ${name}`);
     
-    socket.userId = userId;
-    socket.userRole = role;
-    socket.isAdmin = isAdmin;
+    const userInfo = {
+      socketId: socket.id,
+      userId: userId,
+      userName: name || 'Unknown',
+      role: role || 'user',
+      isOnline: true,
+      joinedAt: new Date()
+    };
     
     // Store user info
-    onlineUsers.set(userId, {
-      socketId: socket.id,
-      role,
-      isAdmin,
-      joinedAt: new Date()
+    onlineUsers.set(userId, userInfo);
+    socketToUser.set(socket.id, {
+      userId: userId,
+      userName: name || 'Unknown',
+      role: role || 'user'
     });
     
-    socketToUser.set(socket.id, userId);
+    // Set socket properties
+    socket.userId = userId;
+    socket.userRole = role;
+    socket.userName = name;
+    socket.isAdmin = isAdmin || role === 'admin';
     
-    if (isAdmin) {
-      adminSockets.set(userId, socket.id);
-      console.log("👨‍💼 Admin joined:", userId);
-      
-      // Notify all users that admin is online
-      socket.broadcast.emit("admin-status", { 
-        isOnline: true,
-        adminCount: adminSockets.size 
-      });
-    } else {
-      userSockets.set(userId, socket.id);
-      console.log("👤 User joined:", userId);
-      
-      // Notify admins about new user online
-      adminSockets.forEach((adminSocketId) => {
-        io.to(adminSocketId).emit("user-online", { 
-          userId, 
-          socketId: socket.id,
-          timestamp: new Date()
-        });
-      });
-    }
+    console.log(`User ${name} (${role}) joined. Total online:`, onlineUsers.size);
     
-    // Send connection confirmation to the user
+    // Send current online users list to the newly joined user
+    socket.emit("online-users-list", getOnlineUsersArray());
+    
+    // Send connection status to user
     socket.emit("connection-status", { 
       isConnected: true, 
-      onlineAdmins: adminSockets.size > 0,
-      adminCount: adminSockets.size,
-      userCount: userSockets.size
+      onlineAdmins: getOnlineAdminsCount(),
+      totalOnline: onlineUsers.size
     });
-
-    console.log(`📊 Online stats - Admins: ${adminSockets.size}, Users: ${userSockets.size}`);
+    
+    // Broadcast to all clients that a new user is online
+    socket.broadcast.emit("user-online", userInfo);
+    
+    // Send updated online users list to all clients
+    io.emit("online-users-list", getOnlineUsersArray());
+    
+    console.log(`Online stats - Total: ${onlineUsers.size}, Admins: ${getOnlineAdminsCount()}`);
   });
 
   // Handle private message between user and admin
-  socket.on("private-message", ({ senderId, receiverId, message, senderName, isAdmin }) => {
-    console.log(`💬 Private message: ${senderName} (${senderId}) -> ${receiverId}`);
+  socket.on("private-message", ({ senderId, receiverId, message, senderName, senderRole, isAdmin }) => {
+    console.log(`Private message: ${senderName} (${senderId}) -> ${receiverId}`);
     
     const receiverInfo = onlineUsers.get(receiverId);
     
@@ -108,17 +119,18 @@ io.on("connection", (socket) => {
       receiverId,
       message,
       senderName,
+      senderRole,
       isAdmin,
       timestamp: new Date(),
-      id: Date.now() + Math.random() // Temporary ID for UI
+      id: Date.now() + Math.random()
     };
     
     if (receiverInfo) {
       // Send to specific receiver
-      io.to(receiverInfo.socketId).emit("private-message", messageData);
-      console.log(`✅ Message delivered to ${receiverId}`);
+      io.to(receiverInfo.socketId).emit("new-message", messageData);
+      console.log(`Message delivered to ${receiverId}`);
     } else {
-      console.log(`❌ Receiver ${receiverId} not online`);
+      console.log(`Receiver ${receiverId} not online`);
     }
     
     // Send confirmation back to sender
@@ -142,54 +154,35 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Handle message read status
-  socket.on("message-read", ({ messageId, readBy }) => {
-    socket.broadcast.emit("message-read", { 
-      messageId, 
-      readBy,
-      readAt: new Date()
-    });
-  });
-
-  // Admin specific: Get all online users
+  // Handle get online users request
   socket.on("get-online-users", () => {
-    if (socket.isAdmin) {
-      const onlineUsersList = Array.from(userSockets.entries()).map(([userId, socketId]) => {
-        const userInfo = onlineUsers.get(userId);
-        return {
-          userId,
-          socketId,
-          isOnline: true,
-          role: userInfo?.role || 'user',
-          joinedAt: userInfo?.joinedAt
-        };
-      });
-      
-      socket.emit("online-users-list", onlineUsersList);
-      console.log(`📋 Sent online users list to admin ${socket.userId}: ${onlineUsersList.length} users`);
-    }
+    console.log(`Sending online users list to ${socket.userId}:`, getOnlineUsersArray().length, 'users');
+    socket.emit("online-users-list", getOnlineUsersArray());
   });
 
-  // User specific: Check if admin is online
+  // Handle admin status check
   socket.on("check-admin-status", () => {
-    const adminCount = adminSockets.size;
-    socket.emit("admin-status", { 
+    const adminCount = getOnlineAdminsCount();
+    const statusData = { 
       isOnline: adminCount > 0,
-      adminCount 
-    });
-    console.log(`❓ Admin status check: ${adminCount > 0 ? 'Online' : 'Offline'} (${adminCount} admins)`);
+      adminCount,
+      onlineAdmins: adminCount
+    };
+    
+    console.log(`Admin status check for ${socket.userId}:`, statusData);
+    socket.emit("admin-status", statusData);
   });
 
   // Handle room joining for specific conversations
   socket.on("join-conversation", ({ conversationId }) => {
     socket.join(conversationId);
-    console.log(`🏠 User ${socket.userId} joined conversation: ${conversationId}`);
+    console.log(`User ${socket.userId} joined conversation: ${conversationId}`);
   });
 
   // Handle leaving conversation
   socket.on("leave-conversation", ({ conversationId }) => {
     socket.leave(conversationId);
-    console.log(`🚪 User ${socket.userId} left conversation: ${conversationId}`);
+    console.log(`User ${socket.userId} left conversation: ${conversationId}`);
   });
 
   // Handle user status updates
@@ -200,9 +193,11 @@ io.on("connection", (socket) => {
         userInfo.status = status;
         userInfo.lastSeen = new Date();
         
-        // Broadcast status update
+        // Broadcast status update with consistent data structure
         socket.broadcast.emit("user-status-update", {
           userId: socket.userId,
+          userName: socket.userName,
+          role: socket.userRole,
           status,
           timestamp: new Date()
         });
@@ -212,37 +207,35 @@ io.on("connection", (socket) => {
 
   // Handle disconnection
   socket.on("disconnect", (reason) => {
-    console.log(`❌ Client disconnected: ${socket.id} (${reason})`);
+    console.log(`Client disconnected: ${socket.id} (${reason})`);
     
-    const userId = socketToUser.get(socket.id);
-    if (userId) {
+    const userSocketInfo = socketToUser.get(socket.id);
+    if (userSocketInfo) {
+      const { userId, userName, role } = userSocketInfo;
+      
+      // Remove user from online users
       onlineUsers.delete(userId);
       socketToUser.delete(socket.id);
       
-      if (socket.isAdmin) {
-        adminSockets.delete(userId);
-        console.log("👨‍💼 Admin disconnected:", userId);
-        
-        // Notify all users about admin status change
-        socket.broadcast.emit("admin-status", { 
-          isOnline: adminSockets.size > 0,
-          adminCount: adminSockets.size 
-        });
-      } else {
-        userSockets.delete(userId);
-        console.log("👤 User disconnected:", userId);
-        
-        // Notify admins about user going offline
-        adminSockets.forEach((adminSocketId) => {
-          io.to(adminSocketId).emit("user-offline", { 
-            userId,
-            timestamp: new Date(),
-            reason 
-          });
-        });
-      }
+      console.log(`User ${userName} (${role}) disconnected`);
       
-      console.log(`📊 Updated stats - Admins: ${adminSockets.size}, Users: ${userSockets.size}`);
+      // Create offline user data
+      const offlineUserData = {
+        userId,
+        userName,
+        role,
+        isOnline: false,
+        timestamp: new Date(),
+        reason
+      };
+      
+      // Broadcast to all clients that user went offline
+      socket.broadcast.emit("user-offline", offlineUserData);
+      
+      // Send updated online users list to all clients
+      io.emit("online-users-list", getOnlineUsersArray());
+      
+      console.log(`Updated stats - Total: ${onlineUsers.size}, Admins: ${getOnlineAdminsCount()}`);
     }
   });
 
@@ -270,11 +263,26 @@ setInterval(() => {
     if (now - userInfo.joinedAt.getTime() > TIMEOUT) {
       const socket = io.sockets.sockets.get(userInfo.socketId);
       if (!socket || !socket.connected) {
-        console.log(`🧹 Cleaning up disconnected user: ${userId}`);
+        console.log(`Cleaning up disconnected user: ${userId}`);
         onlineUsers.delete(userId);
-        socketToUser.delete(userInfo.socketId);
-        adminSockets.delete(userId);
-        userSockets.delete(userId);
+        
+        // Find and remove from socketToUser
+        for (const [socketId, socketInfo] of socketToUser.entries()) {
+          if (socketInfo.userId === userId) {
+            socketToUser.delete(socketId);
+            break;
+          }
+        }
+        
+        // Broadcast user offline
+        io.emit("user-offline", {
+          userId,
+          userName: userInfo.userName,
+          role: userInfo.role,
+          isOnline: false,
+          timestamp: new Date(),
+          reason: 'timeout'
+        });
       }
     }
   }
@@ -299,8 +307,8 @@ app.set("io", io);
 app.use((req, res, next) => {
   req.io = io;
   req.onlineUsers = onlineUsers;
-  req.adminSockets = adminSockets;
-  req.userSockets = userSockets;
+  req.getOnlineUsersArray = getOnlineUsersArray;
+  req.getOnlineAdminsCount = getOnlineAdminsCount;
   next();
 });
 
@@ -321,8 +329,9 @@ app.get("/api/health", (req, res) => {
     uptime: process.uptime(),
     socket: {
       connected: io.engine.clientsCount,
-      admins: adminSockets.size,
-      users: userSockets.size
+      totalOnline: onlineUsers.size,
+      admins: getOnlineAdminsCount(),
+      users: onlineUsers.size - getOnlineAdminsCount()
     }
   });
 });
@@ -336,11 +345,11 @@ mongoose
   .then(() => {
     const PORT = process.env.PORT || 5000;
     server.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`🔌 Socket.IO server ready`);
-      console.log(`🌐 CORS origin: ${process.env.CLIENT_URL || "http://localhost:3000"}`);
+      console.log(`Server running on port ${PORT}`);
+      console.log(`Socket.IO server ready`);
+      console.log(`CORS origin: ${process.env.CLIENT_URL || "http://localhost:3000"}`);
     });
   })
-  .catch((err) => console.error("❌ MongoDB connection error:", err));
+  .catch((err) => console.error("MongoDB connection error:", err));
 
 export { io };
