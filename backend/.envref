@@ -1,0 +1,9 @@
+PORT=8000
+MONGO_URI=mongodb+srv://username:pwd@vehicalrental.uh56yms.mongodb.net/?retryWrites=true&w=majority&appName=vehicalrental
+JWT_SECRET=dsjkdjsk
+SESSION_SECRET=shjd
+EMAIL_USER=xyz@gmail.com
+EMAIL_PASS="16 no. of password"
+CLIENT_URL=http://localhost:5173
+GOOGLE_CLIENT_ID=jsdkjss.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=djsdshjdhjskkj
