@@ -39,58 +39,87 @@ Reviews
 ⭐ Users can post and view reviews for vehicles
 
 📁 Project Structure
+
 VehicalRent/
+
 ├─ backend/           # Node.js + Express backend
+
 │  ├─ controllers/    # API controllers
+
 │  ├─ models/         # Mongoose models
+
 │  ├─ routes/         # API routes
+
 │  ├─ utils/          # Helper functions (sendEmail, OTP, etc.)
+
 │  └─ .env            # Environment variables (ignored)
+
 ├─ frontend/          # React + Vite frontend
+
 │  ├─ src/            # React components & pages
+
 │  └─ .env            # Environment variables (ignored)
+
 └─ README.md
 
 
 ⚙️ Backend Setup
 
 1.Navigate to backend folder:
+
 ->cd backend
 
 
 2.Install dependencies:
+
 ->npm install
 
 3.Create .envref (reference for environment variables):
+
 PORT=8000
+
 MONGO_URI=your_mongodb_connection_string
+
 JWT_SECRET=your_jwt_secret
+
 SESSION_SECRET=your_session_secret
+
 EMAIL_USER=your_email@gmail.com
+
 EMAIL_PASS=your_email_password
+
 CLIENT_URL=http://localhost:5173
+
 GOOGLE_CLIENT_ID=your_google_client_id
+
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 
 ->Note: Use .envref as reference.
 
 4.Run the backend:
+
 ->nodemon app.js
 
 ⚡ Frontend Setup
 
 1.Navigate to frontend folder:
+
 ->cd frontend
 
 2.Install dependencies:
+
 ->npm install
 
 3.Create .envref for reference:
+
 VITE_API_URL=http://localhost:8000
+
 VITE_APP_CLOUD_NAME_CLOUDINARY=your_cloud_name
+
 VITE_UPLOAD_PRESET=vehicalRent
 
 4.Run frontend:
+
 npm run dev
 
 📧 Email Configuration
@@ -104,8 +133,11 @@ EMAIL_PASS=your_email_password
 💡 Notes
 
 🚫 Do not commit your .env files to GitHub
+
 ✅ Use .envref for reference of required environment variables
+
 🕒 Backend runs on port 8000 by default
+
 🌐 Frontend runs on port 5173
 
 📌 Tech Stack
@@ -125,6 +157,7 @@ AI Chatbot: Ollama model (gemma:2b)
 Cloud Storage: Cloudinary
 
 👨‍💻 Author
+
 Ravi Jethva
 
 📧 ravijethva2004@gmail.com
