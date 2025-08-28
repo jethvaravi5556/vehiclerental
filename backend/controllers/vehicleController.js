@@ -6,10 +6,32 @@ const isTimeOverlap = (start1, end1, start2, end2) => {
 };
 
 export const getAllVehicles = async (req, res) => {
-  const vehicles = await Vehicle.find();
-  res.json(vehicles);
-};
+  try {
+    const vehicles = await Vehicle.find();
 
+    // attach rating + reviewCount
+    const vehiclesWithReviews = await Promise.all(
+      vehicles.map(async (vehicle) => {
+        const reviews = await Review.find({ vehicle: vehicle._id });
+        const reviewCount = reviews.length;
+        const avgRating =
+          reviewCount > 0
+            ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount
+            : 0;
+
+        return {
+          ...vehicle.toObject(),
+          reviewCount,
+          rating: avgRating,
+        };
+      })
+    );
+
+    res.json(vehiclesWithReviews);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch vehicles" });
+  }
+};
 // export const getVehicleById = async (req, res) => {
 //   const vehicle = await Vehicle.findById(req.params.id);
 //   res.json(vehicle);

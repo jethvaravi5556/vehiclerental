@@ -3,6 +3,9 @@
 import { motion } from "framer-motion"
 import { Star, Quote } from "lucide-react"
 import Card from "../ui/Card"
+import person1 from "../../assets/person1.jpg";
+import person2 from "../../assets/person2.jpg";
+import person3 from "../../assets/person3.jpg";
 
 const TestimonialsSection = () => {
   const testimonials = [
@@ -10,7 +13,7 @@ const TestimonialsSection = () => {
       id: 1,
       name: "Sarah Johnson",
       role: "Business Executive",
-      avatar: "/placeholder.svg?height=60&width=60",
+      avatar: person1,
       rating: 5,
       text: "Amazing service! The car was in perfect condition and the booking process was seamless. Highly recommended for anyone looking for premium vehicle rentals.",
     },
@@ -18,7 +21,7 @@ const TestimonialsSection = () => {
       id: 2,
       name: "Mike Chen",
       role: "Travel Blogger",
-      avatar: "/placeholder.svg?height=60&width=60",
+      avatar: person2,
       rating: 5,
       text: "I've used VehicleRent for multiple trips and they never disappoint. Great variety of vehicles and excellent customer support.",
     },
@@ -26,14 +29,14 @@ const TestimonialsSection = () => {
       id: 3,
       name: "Emily Davis",
       role: "Photographer",
-      avatar: "/placeholder.svg?height=60&width=60",
+      avatar: person3,
       rating: 5,
       text: "Perfect for my photography shoots! The luxury cars are well-maintained and the flexible rental options make it so convenient.",
     },
   ]
 
   return (
-    <section className="py-20 bg-gray-50">
+    <section id="about" className="py-20 bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: 50 }}

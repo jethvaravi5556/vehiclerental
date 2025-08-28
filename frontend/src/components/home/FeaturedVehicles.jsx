@@ -13,6 +13,7 @@ import toast from "react-hot-toast"
 
 const FeaturedVehicles = () => {
   const navigate = useNavigate();
+  const [reviews, setReviews] = useState([]);
   const { isAuthenticated } = useAuth();
   const { 
     vehicles, 
@@ -123,7 +124,7 @@ const FeaturedVehicles = () => {
   }
 
   return (
-    <section className="py-20 bg-gradient-to-br from-slate-50 via-white to-blue-50 relative overflow-hidden">
+    <section id="vehicles" className="py-20 bg-gradient-to-br from-slate-50 via-white to-blue-50 relative overflow-hidden">
       {/* Background decorations */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-purple-600/20 rounded-full blur-3xl" />
@@ -277,11 +278,11 @@ const FeaturedVehicles = () => {
                           <div className="flex items-center space-x-1">
                             <Star className="h-4 w-4 text-yellow-400 fill-current" />
                             <span className="text-sm font-semibold text-gray-900">
-                              {vehicle.rating?.toFixed(1) || '4.5'}
+                              {vehicle.rating?.toFixed(1) || "0.0"}
                             </span>
                           </div>
                           <span className="text-sm text-gray-500">
-                            ({vehicle.reviewCount || Math.floor(Math.random() * 50) + 10} reviews)
+                            ({vehicle.reviewCount || 0} reviews)
                           </span>
                         </div>
                         
