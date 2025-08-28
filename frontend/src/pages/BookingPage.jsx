@@ -43,16 +43,21 @@ const BookingPage = () => {
   const [searchParams] = useSearchParams();
   const vehicleId = searchParams.get("vehicleId");
 
-  // CRITICAL: Extract ALL URL params at component level FIRST
+  const [vehicle, setVehicle] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilityStatus, setAvailabilityStatus] = useState(null);
+  const [lastCheckedBooking, setLastCheckedBooking] = useState(null);
+
+  // Enhanced URL params extraction
   const urlPickupDate = searchParams.get("pickupDate");
   const urlReturnDate = searchParams.get("returnDate");
   const urlPickupTime = searchParams.get("pickupTime");
   const urlReturnTime = searchParams.get("returnTime");
   const urlLocation = searchParams.get("location");
-  const urlBookingType =
-    searchParams.get("bookingType") || searchParams.get("searchType");
+  const urlBookingType = searchParams.get("bookingType");
 
-  // Helper function to determine initial booking type
+  // Determine booking type from URL params
   const getInitialBookingType = () => {
     if (urlBookingType === "hourly" || (urlPickupTime && urlReturnTime)) {
       return "hourly";
@@ -60,68 +65,15 @@ const BookingPage = () => {
     return "daily";
   };
 
-  const [bookingData, setBookingData] = useState(() => {
-    // Validate dates to ensure they're not in the past
-    const validateDate = (dateString) => {
-      if (!dateString) return "";
-      const date = new Date(dateString);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      return date >= today ? dateString : "";
-    };
-
-    // Validate time for today's bookings
-    const validateTime = (timeString, dateString) => {
-      if (!timeString || !dateString) return timeString || "";
-
-      const selectedDate = new Date(dateString);
-      const today = new Date();
-      selectedDate.setHours(0, 0, 0, 0);
-      today.setHours(0, 0, 0, 0);
-
-      // If it's today, check if time is in the future
-      if (selectedDate.getTime() === today.getTime()) {
-        const now = new Date();
-        const [hours, minutes] = timeString.split(":").map(Number);
-        const timeToCheck = new Date();
-        timeToCheck.setHours(hours, minutes, 0, 0);
-
-        if (timeToCheck <= now) {
-          // Return next hour as default
-          const nextHour = new Date();
-          nextHour.setHours(nextHour.getHours() + 1, 0, 0, 0);
-          return nextHour.toTimeString().slice(0, 5);
-        }
-      }
-
-      return timeString;
-    };
-
-    const initialBookingType = getInitialBookingType();
-    const validPickupDate = validateDate(urlPickupDate);
-
-    return {
-      startDate: validPickupDate,
-      endDate:
-        initialBookingType === "daily" ? validateDate(urlReturnDate) : "",
-      startHour:
-        initialBookingType === "hourly"
-          ? validateTime(urlPickupTime, validPickupDate)
-          : "",
-      endHour:
-        initialBookingType === "hourly"
-          ? validateTime(urlReturnTime, validPickupDate)
-          : "",
-      pickupLocation: urlLocation || "",
-      dropLocation: urlLocation || "",
-      bookingType: initialBookingType,
-    };
+  const [bookingData, setBookingData] = useState({
+    startDate: urlPickupDate || "",
+    endDate: urlReturnDate || "",
+    startHour: urlPickupTime || "",
+    endHour: urlReturnTime || "",
+    pickupLocation: urlLocation || "",
+    dropLocation: urlLocation || "",
+    bookingType: getInitialBookingType(),
   });
-  const [vehicle, setVehicle] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [availabilityLoading, setAvailabilityLoading] = useState(false);
-  const [availabilityStatus, setAvailabilityStatus] = useState(null);
-  const [lastCheckedBooking, setLastCheckedBooking] = useState(null);
   const [totalAmount, setTotalAmount] = useState(0);
   const [validationErrors, setValidationErrors] = useState({});
   const [prefillNotified, setPrefillNotified] = useState(false);
@@ -137,51 +89,6 @@ const BookingPage = () => {
     conflictDetails,
     getAlternativeSuggestions,
   } = useBooking();
-  useEffect(() => {
-    // Smart form completion when switching between daily and hourly
-    if (
-      bookingData.bookingType === "hourly" &&
-      bookingData.startDate &&
-      !bookingData.startHour
-    ) {
-      // Auto-set reasonable default times for hourly bookings
-      const now = new Date();
-      const selectedDate = new Date(bookingData.startDate);
-
-      let defaultStartHour = "09:00";
-      let defaultEndHour = "17:00";
-
-      // If booking is for today, set start time to next hour
-      if (selectedDate.toDateString() === now.toDateString()) {
-        const nextHour = new Date();
-        nextHour.setHours(nextHour.getHours() + 1, 0, 0, 0);
-        defaultStartHour = nextHour.toTimeString().slice(0, 5);
-
-        const endHour = new Date();
-        endHour.setHours(nextHour.getHours() + 8, 0, 0, 0); // 8 hour default
-        defaultEndHour = endHour.toTimeString().slice(0, 5);
-      }
-
-      setBookingData((prev) => ({
-        ...prev,
-        startHour: defaultStartHour,
-        endHour: defaultEndHour,
-      }));
-    } else if (
-      bookingData.bookingType === "daily" &&
-      bookingData.startDate &&
-      !bookingData.endDate
-    ) {
-      // Auto-set end date to next day for daily bookings
-      const nextDay = new Date(bookingData.startDate);
-      nextDay.setDate(nextDay.getDate() + 1);
-
-      setBookingData((prev) => ({
-        ...prev,
-        endDate: nextDay.toISOString().split("T")[0],
-      }));
-    }
-  }, [bookingData.bookingType, bookingData.startDate]);
 
   useEffect(() => {
     if (vehicleId) {
@@ -221,48 +128,47 @@ const BookingPage = () => {
         urlPickupTime ||
         urlReturnTime)
     ) {
-      const prefilledData = [];
+      let message = "Booking form pre-filled with your search details";
+      let details = [];
 
       if (bookingData.bookingType === "hourly") {
-        if (urlPickupDate)
-          prefilledData.push(
-            `Date: ${new Date(urlPickupDate).toLocaleDateString()}`
-          );
-        if (urlPickupTime && urlReturnTime) {
-          prefilledData.push(`Time: ${urlPickupTime} to ${urlReturnTime}`);
+        if (urlPickupDate) {
+          details.push(`Date: ${new Date(urlPickupDate).toLocaleDateString()}`);
         }
-        if (urlLocation) prefilledData.push(`Location: ${urlLocation}`);
+        if (urlPickupTime && urlReturnTime) {
+          details.push(`Time: ${urlPickupTime} to ${urlReturnTime}`);
+        }
+        if (urlLocation) {
+          details.push(`Location: ${urlLocation}`);
+        }
       } else {
-        if (urlPickupDate)
-          prefilledData.push(
-            `Start: ${new Date(urlPickupDate).toLocaleDateString()}`
+        if (urlPickupDate && urlReturnDate) {
+          details.push(
+            `${new Date(urlPickupDate).toLocaleDateString()} to ${new Date(
+              urlReturnDate
+            ).toLocaleDateString()}`
           );
-        if (urlReturnDate)
-          prefilledData.push(
-            `End: ${new Date(urlReturnDate).toLocaleDateString()}`
-          );
-        if (urlLocation) prefilledData.push(`Location: ${urlLocation}`);
+        }
+        if (urlLocation) {
+          details.push(`in ${urlLocation}`);
+        }
       }
 
-      if (prefilledData.length > 0) {
-        toast.success(
-          `Booking form pre-filled from your search!\n${prefilledData.join(
-            " • "
-          )}`,
-          {
-            duration: 6000,
-            style: {
-              borderRadius: "12px",
-              background:
-                bookingData.bookingType === "hourly" ? "#8B5CF6" : "#10B981",
-              color: "#fff",
-              fontSize: "14px",
-              fontWeight: "500",
-            },
-          }
-        );
-        setPrefillNotified(true);
+      if (details.length > 0) {
+        message += ` (${details.join(", ")})`;
       }
+
+      toast.success(message, {
+        icon: bookingData.bookingType === "hourly" ? "⏰" : "📅",
+        duration: 5000,
+        style: {
+          borderRadius: "10px",
+          background:
+            bookingData.bookingType === "hourly" ? "#8B5CF6" : "#10B981",
+          color: "#fff",
+        },
+      });
+      setPrefillNotified(true);
     }
   }, [
     urlPickupDate,
@@ -368,29 +274,26 @@ const BookingPage = () => {
 
   const validateBooking = () => {
     const errors = {};
-    const now = new Date();
 
     if (bookingData.bookingType === "daily") {
-      if (!bookingData.startDate) {
-        errors.startDate = "Start date is required";
-      } else {
-        const startDate = new Date(bookingData.startDate);
-        if (startDate < new Date(now.toDateString())) {
+      if (!bookingData.startDate) errors.startDate = "Start date is required";
+      if (!bookingData.endDate) errors.endDate = "End date is required";
+      if (bookingData.startDate && bookingData.endDate) {
+        if (new Date(bookingData.startDate) >= new Date(bookingData.endDate)) {
+          errors.endDate = "End date must be after start date";
+        }
+        if (new Date(bookingData.startDate) < new Date().setHours(0, 0, 0, 0)) {
           errors.startDate = "Start date cannot be in the past";
         }
       }
-
-      if (!bookingData.endDate) {
-        errors.endDate = "End date is required";
-      } else if (bookingData.startDate) {
-        const startDate = new Date(bookingData.startDate);
-        const endDate = new Date(bookingData.endDate);
-        if (endDate <= startDate) {
-          errors.endDate = "End date must be after start date";
+    } else {
+      if (!bookingData.startHour) errors.startHour = "Start time is required";
+      if (!bookingData.endHour) errors.endHour = "End time is required";
+      if (bookingData.startHour && bookingData.endHour) {
+        if (bookingData.startHour >= bookingData.endHour) {
+          errors.endHour = "End time must be after start time";
         }
       }
-    } else {
-      // Hourly validation
       if (!bookingData.startDate) {
         errors.startDate = "Date is required for hourly booking";
       } else {
@@ -402,47 +305,27 @@ const BookingPage = () => {
         if (selectedDate < today) {
           errors.startDate = "Date cannot be in the past";
         }
-      }
 
-      if (!bookingData.startHour) {
-        errors.startHour = "Start time is required";
-      }
-      if (!bookingData.endHour) {
-        errors.endHour = "End time is required";
-      }
-
-      // Time validation for today's bookings
-      if (bookingData.startDate && bookingData.startHour) {
-        const selectedDate = new Date(bookingData.startDate);
-        const today = new Date();
-        selectedDate.setHours(0, 0, 0, 0);
-        today.setHours(0, 0, 0, 0);
-
-        if (selectedDate.getTime() === today.getTime()) {
+        if (
+          selectedDate.getTime() === today.getTime() &&
+          bookingData.startHour
+        ) {
+          const now = new Date();
           const [startH, startM] = bookingData.startHour.split(":").map(Number);
           const startTime = new Date();
           startTime.setHours(startH, startM, 0, 0);
 
           if (startTime <= now) {
-            errors.startHour = "Start time must be in the future";
+            errors.startHour = "Start time cannot be in the past";
           }
         }
       }
-
-      if (bookingData.startHour && bookingData.endHour) {
-        if (bookingData.startHour >= bookingData.endHour) {
-          errors.endHour = "End time must be after start time";
-        }
-      }
     }
 
-    // Location validation
-    if (!bookingData.pickupLocation.trim()) {
+    if (!bookingData.pickupLocation.trim())
       errors.pickupLocation = "Pickup location is required";
-    }
-    if (!bookingData.dropLocation.trim()) {
-      errors.dropLocation = "Drop-off location is required";
-    }
+    if (!bookingData.dropLocation.trim())
+      errors.dropLocation = "Drop location is required";
 
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
@@ -458,24 +341,6 @@ const BookingPage = () => {
         delete newErrors[field];
         return newErrors;
       });
-    }
-
-    // Smart form assistance
-    if (field === "startDate") {
-      // Auto-set end date for daily bookings
-      if (
-        bookingData.bookingType === "daily" &&
-        value &&
-        !bookingData.endDate
-      ) {
-        const nextDay = new Date(value);
-        nextDay.setDate(nextDay.getDate() + 1);
-        setBookingData((prev) => ({
-          ...prev,
-          startDate: value,
-          endDate: nextDay.toISOString().split("T")[0],
-        }));
-      }
     }
 
     // Clear availability status when booking details change
@@ -569,87 +434,32 @@ const BookingPage = () => {
 
   const handleBookingTypeChange = (newType) => {
     if (newType === "hourly" && bookingData.bookingType === "daily") {
-      // Switching to hourly
-      const updates = {
-        bookingType: newType,
-        endDate: "", // Clear end date
-      };
-
-      // Set default times if not already set
+      handleInputChange("endDate", "");
       if (!bookingData.startHour) {
-        const now = new Date();
-        const isToday =
-          bookingData.startDate === now.toISOString().split("T")[0];
-
-        if (isToday) {
-          const nextHour = new Date();
-          nextHour.setHours(nextHour.getHours() + 1, 0, 0, 0);
-          updates.startHour = nextHour.toTimeString().slice(0, 5);
-
-          const endTime = new Date();
-          endTime.setHours(nextHour.getHours() + 4, 0, 0, 0); // 4 hours default
-          updates.endHour = endTime.toTimeString().slice(0, 5);
-        } else {
-          updates.startHour = "09:00";
-          updates.endHour = "17:00";
-        }
+        handleInputChange("startHour", "");
       }
-
-      setBookingData((prev) => ({ ...prev, ...updates }));
-
-      toast.success("Switched to hourly rental with smart time defaults", {
-        icon: "⏰",
-        duration: 3000,
-        style: { borderRadius: "10px", background: "#8B5CF6", color: "#fff" },
-      });
+      if (!bookingData.endHour) {
+        handleInputChange("endHour", "");
+      }
     } else if (newType === "daily" && bookingData.bookingType === "hourly") {
-      // Switching to daily
-      const updates = {
-        bookingType: newType,
-        startHour: "",
-        endHour: "",
-      };
-
-      // Set default end date if not set
+      handleInputChange("startHour", "");
+      handleInputChange("endHour", "");
       if (bookingData.startDate && !bookingData.endDate) {
         const nextDay = new Date(bookingData.startDate);
         nextDay.setDate(nextDay.getDate() + 1);
-        updates.endDate = nextDay.toISOString().split("T")[0];
+        handleInputChange("endDate", nextDay.toISOString().split("T")[0]);
       }
-
-      setBookingData((prev) => ({ ...prev, ...updates }));
-
-      toast.success("Switched to daily rental with smart date defaults", {
-        icon: "📅",
-        duration: 3000,
-        style: { borderRadius: "10px", background: "#10B981", color: "#fff" },
-      });
     }
+    handleInputChange("bookingType", newType);
   };
 
   const getPrefilledFields = () => {
     const fields = [];
-
-    if (urlPickupDate && bookingData.startDate === urlPickupDate) {
-      fields.push(bookingData.bookingType === "hourly" ? "date" : "startDate");
-    }
-    if (urlReturnDate && bookingData.endDate === urlReturnDate) {
-      fields.push("endDate");
-    }
-    if (urlPickupTime && bookingData.startHour === urlPickupTime) {
-      fields.push("startTime");
-    }
-    if (urlReturnTime && bookingData.endHour === urlReturnTime) {
-      fields.push("endTime");
-    }
-    if (
-      urlLocation &&
-      (bookingData.pickupLocation === urlLocation ||
-        bookingData.dropLocation === urlLocation)
-    ) {
-      fields.push("location");
-    }
-
+    if (urlPickupDate) fields.push("date");
+    if (urlReturnDate) fields.push("returnDate");
+    if (urlPickupTime) fields.push("startTime");
+    if (urlReturnTime) fields.push("endTime");
+    if (urlLocation) fields.push("location");
     return fields;
   };
 
@@ -917,53 +727,7 @@ const BookingPage = () => {
       </div>
     );
   }
-  const QuickActions = () => {
-    if (!urlPickupDate && !urlPickupTime && !urlLocation) return null;
 
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200"
-      >
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="font-semibold text-gray-900 mb-1">
-              Smart Booking Assistant
-            </h4>
-            <p className="text-sm text-gray-600">
-              Your search data has been applied. You can modify any details
-              below.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                // Reset to search defaults
-                const resetData = {
-                  startDate: urlPickupDate || "",
-                  endDate: urlReturnDate || "",
-                  startHour: urlPickupTime || "",
-                  endHour: urlReturnTime || "",
-                  pickupLocation: urlLocation || "",
-                  dropLocation: urlLocation || "",
-                  bookingType: getInitialBookingType(),
-                };
-                setBookingData(resetData);
-                toast.success("Restored original search data", {
-                  icon: "🔄",
-                  duration: 2000,
-                });
-              }}
-              className="px-3 py-1 text-sm bg-white border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 transition-colors"
-            >
-              Reset to Search
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    );
-  };
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -1225,7 +989,15 @@ const BookingPage = () => {
                               onChange={(e) =>
                                 handleInputChange("startDate", e.target.value)
                               }
-                              min={new Date().toISOString().split("T")[0]}
+                              min={
+                                new Date(
+                                  Date.now() -
+                                    new Date().getTimezoneOffset() * 60000
+                                )
+                                  .toISOString()
+                                  .split("T")[0]
+                              }
+                              // min={new Date().toISOString().split("T")[0]}
                               className={`h-14 text-lg rounded-xl border-2 ${
                                 validationErrors.startDate
                                   ? "border-red-300 focus:border-red-500"
@@ -1259,8 +1031,17 @@ const BookingPage = () => {
                               }
                               min={
                                 bookingData.startDate ||
-                                new Date().toISOString().split("T")[0]
+                                new Date(
+                                  Date.now() -
+                                    new Date().getTimezoneOffset() * 60000
+                                )
+                                  .toISOString()
+                                  .split("T")[0]
                               }
+                              // min={
+                              //   bookingData.startDate ||
+                              //   new Date().toISOString().split("T")[0]
+                              // }
                               className={`h-14 text-lg rounded-xl border-2 ${
                                 validationErrors.endDate
                                   ? "border-red-300 focus:border-red-500"
@@ -1295,7 +1076,15 @@ const BookingPage = () => {
                               onChange={(e) =>
                                 handleInputChange("startDate", e.target.value)
                               }
-                              min={new Date().toISOString().split("T")[0]}
+                              min={
+                                new Date(
+                                  Date.now() -
+                                    new Date().getTimezoneOffset() * 60000
+                                )
+                                  .toISOString()
+                                  .split("T")[0]
+                              }
+                              // min={new Date().toISOString().split("T")[0]}
                               className={`h-14 text-lg rounded-xl border-2 ${
                                 validationErrors.startDate
                                   ? "border-red-300 focus:border-red-500"
