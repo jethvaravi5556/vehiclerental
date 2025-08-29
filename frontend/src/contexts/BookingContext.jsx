@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback } from 'react';
-import axios from 'axios';
+// import axios from 'axios';
 import toast from 'react-hot-toast';
+import axios from '../../src/axiosConfig'; // or the correct path
 
 const BookingContext = createContext();
 
